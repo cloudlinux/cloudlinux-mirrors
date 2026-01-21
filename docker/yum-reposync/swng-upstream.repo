@@ -1,0 +1,15 @@
+# SWNG Repository Configuration for upstream.cloudlinux.com
+
+[SWNG-9-x86_64]
+name=CloudLinux 9 SWNG x86_64
+baseurl=https://upstream.cloudlinux.com/swng/9/x86_64/
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
+
+[SWNG-8-x86_64]
+name=CloudLinux 8 SWNG x86_64
+baseurl=https://upstream.cloudlinux.com/swng/8/x86_64/
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux

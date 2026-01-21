@@ -1,0 +1,135 @@
+# Specific SWNG Version Mirror - Docker Setup
+
+This Docker setup creates a containerized SWNG repository mirror for a specific CloudLinux version (8 or 9) that automatically syncs from `upstream.cloudlinux.com` using RSync.
+
+## Prerequisites
+
+- Docker or Docker Compose
+- Sufficient disk space (100-200 GB per version recommended)
+- Network access to `rsync.upstream.cloudlinux.com`
+
+## Quick Start
+
+### Using Docker Compose (Recommended)
+
+1. **Create directories for data and logs:**
+
+```bash
+mkdir -p mirror-data/9 logs
+```
+
+2. **Start the container:**
+
+```bash
+docker-compose up -d
+```
+
+3. **View logs:**
+
+```bash
+docker-compose logs -f swng-9-mirror
+```
+
+### Mirroring CloudLinux 8
+
+Edit `docker-compose.yml` and uncomment the `swng-8-mirror` service, or create a separate compose file.
+
+### Using Docker
+
+1. **Build the image:**
+
+```bash
+docker build -t swng-version-mirror .
+```
+
+2. **Run the container for CloudLinux 9:**
+
+```bash
+docker run -d \
+  --name swng-9-mirror \
+  --restart unless-stopped \
+  -v $(pwd)/mirror-data/9:/var/www/mirrors/swng/9 \
+  -v $(pwd)/logs:/var/log \
+  -e CLOUDLINUX_VERSION=9 \
+  -e INITIAL_SYNC=true \
+  swng-version-mirror
+```
+
+3. **Run the container for CloudLinux 8:**
+
+```bash
+docker run -d \
+  --name swng-8-mirror \
+  --restart unless-stopped \
+  -v $(pwd)/mirror-data/8:/var/www/mirrors/swng/8 \
+  -v $(pwd)/logs:/var/log \
+  -e CLOUDLINUX_VERSION=8 \
+  -e INITIAL_SYNC=true \
+  swng-version-mirror
+```
+
+## Configuration
+
+### Environment Variables
+
+- `CLOUDLINUX_VERSION`: CloudLinux version to mirror (required: `8` or `9`)
+- `RSYNC_SOURCE`: RSync source URL (auto-generated based on version)
+- `MIRROR_PATH`: Mirror destination path (auto-generated based on version)
+- `LOG_FILE`: Log file path (auto-generated based on version)
+- `INITIAL_SYNC`: Run initial sync on startup (default: `true`)
+- `SYNC_INTERVAL_HOURS`: Sync interval in hours (default: `6`)
+
+### Volume Mounts
+
+- `./mirror-data/9` - Mirror repository data for CloudLinux 9 (persistent)
+- `./mirror-data/8` - Mirror repository data for CloudLinux 8 (persistent)
+- `./logs` - Log files (persistent)
+
+## Usage
+
+### View Sync Status
+
+```bash
+# View container logs
+docker-compose logs -f swng-9-mirror
+
+# View sync log
+tail -f logs/swng-9-mirror.log
+
+# Check mirror data
+ls -lh mirror-data/9/
+```
+
+### Manual Sync Trigger
+
+```bash
+# Execute sync script manually
+docker-compose exec swng-9-mirror /usr/local/bin/sync-script.sh
+```
+
+### Mirroring Multiple Versions
+
+To mirror both CloudLinux 8 and 9, uncomment the `swng-8-mirror` service in `docker-compose.yml`:
+
+```bash
+# Edit docker-compose.yml and uncomment swng-8-mirror service
+docker-compose up -d
+```
+
+Or run separate containers:
+
+```bash
+# CloudLinux 9
+docker-compose up -d swng-9-mirror
+
+# CloudLinux 8
+docker-compose up -d swng-8-mirror
+```
+
+## Notes
+
+- Each version requires its own container
+- Initial sync may take several hours per version
+- The container runs cron internally for scheduled syncs
+- Mirror data persists in the `mirror-data` directory
+- Logs are stored in the `logs` directory

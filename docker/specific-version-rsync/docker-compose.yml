@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  swng-9-mirror:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: swng-9-mirror
+    restart: unless-stopped
+    environment:
+      - CLOUDLINUX_VERSION=9
+      - RSYNC_SOURCE=rsync://rsync.upstream.cloudlinux.com/SWNG/9/
+      - MIRROR_PATH=/var/www/mirrors/swng/9
+      - LOG_FILE=/var/log/swng-9-mirror.log
+      - INITIAL_SYNC=true
+      - SYNC_INTERVAL_HOURS=6
+    volumes:
+      # Mirror data - adjust path as needed
+      - ./mirror-data/9:/var/www/mirrors/swng/9
+      # Logs
+      - ./logs:/var/log
+    networks:
+      - mirror-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Uncomment to also mirror CloudLinux 8
+  # swng-8-mirror:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: swng-8-mirror
+  #   restart: unless-stopped
+  #   environment:
+  #     - CLOUDLINUX_VERSION=8
+  #     - RSYNC_SOURCE=rsync://rsync.upstream.cloudlinux.com/SWNG/8/
+  #     - MIRROR_PATH=/var/www/mirrors/swng/8
+  #     - LOG_FILE=/var/log/swng-8-mirror.log
+  #     - INITIAL_SYNC=true
+  #     - SYNC_INTERVAL_HOURS=6
+  #   volumes:
+  #     - ./mirror-data/8:/var/www/mirrors/swng/8
+  #     - ./logs:/var/log
+  #   networks:
+  #     - mirror-network
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '2'
+  #         memory: 2G
+  #       reservations:
+  #         cpus: '0.5'
+  #         memory: 512M
+
+networks:
+  mirror-network:
+    driver: bridge

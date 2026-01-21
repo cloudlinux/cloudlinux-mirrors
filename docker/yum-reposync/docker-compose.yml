@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  swng-reposync:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: swng-reposync
+    restart: unless-stopped
+    environment:
+      - MIRROR_PATH=/var/www/mirrors/swng
+      - LOG_FILE=/var/log/swng-reposync.log
+      # Comma-separated list of repositories to sync
+      - REPOS=SWNG-9-x86_64 SWNG-8-x86_64
+      - INITIAL_SYNC=true
+      - SYNC_INTERVAL_HOURS=6
+    volumes:
+      # Mirror data - adjust path as needed
+      - ./mirror-data:/var/www/mirrors/swng
+      # Logs
+      - ./logs:/var/log
+    networks:
+      - mirror-network
+    # Resource limits (adjust as needed)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+networks:
+  mirror-network:
+    driver: bridge

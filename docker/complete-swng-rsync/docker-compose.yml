@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  swng-mirror:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: swng-mirror
+    restart: unless-stopped
+    environment:
+      - RSYNC_SOURCE=rsync://rsync.upstream.cloudlinux.com/SWNG/
+      - MIRROR_PATH=/var/www/mirrors/swng
+      - LOG_FILE=/var/log/swng-mirror.log
+      - INITIAL_SYNC=true
+      - SYNC_INTERVAL_HOURS=4
+    volumes:
+      # Mirror data - adjust path as needed
+      - ./mirror-data:/var/www/mirrors/swng
+      # Logs
+      - ./logs:/var/log
+    networks:
+      - mirror-network
+    # Resource limits (adjust as needed)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+networks:
+  mirror-network:
+    driver: bridge
