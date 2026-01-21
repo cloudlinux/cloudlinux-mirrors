@@ -1,12 +1,32 @@
 # How to Use upstream.cloudlinux.com for Repository Mirroring
 
+## Table of Contents
+
+- [Introduction](#introduction)
+- [What is upstream.cloudlinux.com?](#what-is-upstreamcloudlinuxcom)
+- [Access Methods](#access-methods)
+- [Creating a Local Mirror](#creating-a-local-mirror)
+- [Cloning Specific Repositories](#cloning-specific-repositories)
+- [Mirroring SWNG Repositories](#mirroring-swng-repositories)
+- [Adding Your Mirror to CloudLinux Mirror Rotation](#adding-your-mirror-to-cloudlinux-mirror-rotation)
+- [Automated Mirror Setup with Ansible](#automated-mirror-setup-with-ansible)
+- [Containerized Mirror Setup with Docker](#containerized-mirror-setup-with-docker)
+- [Choosing the Right Approach](#choosing-the-right-approach)
+- [Using apt-mirror](#using-apt-mirror-for-debianubuntu-based-systems)
+- [Serving Your Local Mirror](#serving-your-local-mirror)
+- [Best Practices](#best-practices)
+- [Troubleshooting](#troubleshooting)
+- [Advanced Options](#advanced-options)
+- [Support and Resources](#support-and-resources)
+- [Summary](#summary)
+
 ## Introduction
 
 `upstream.cloudlinux.com` is CloudLinux's dedicated repository mirroring service that provides unrestricted access to CloudLinux and SWNG repositories. This service is designed for organizations that need to create and maintain local mirrors of CloudLinux repositories.
 
 ## What is upstream.cloudlinux.com?
 
-`upstream.cloudlinux.com` is a special repository servuce that provides:
+`upstream.cloudlinux.com` is a special repository service that provides:
 
 - **Unrestricted Access:** No authentication required for downloading repository content
 - **Multiple Access Methods:** Both HTTP/HTTPS and RSync protocols
@@ -741,6 +761,258 @@ tail -f /var/log/httpd/access_log
 tail -f /var/log/nginx/access.log
 ```
 
+## Automated Mirror Setup with Ansible
+
+For organizations managing multiple mirror servers or requiring infrastructure-as-code approaches, Ansible playbooks are available to automate the complete mirror setup process.
+
+### Available Ansible Playbooks
+
+The repository includes several Ansible playbooks located in the `ansible/` directory:
+
+1. **Complete SWNG Mirror** (`ansible/complete-swng-rsync/`)
+   - Sets up complete SWNG repository mirror using RSync
+   - Configures systemd timers for automated updates
+   - Best for: Complete SWNG mirroring needs
+
+2. **Specific Version Mirror** (`ansible/specific-version-rsync/`)
+   - Mirrors specific CloudLinux versions (8 or 9)
+   - Version-specific systemd services and timers
+   - Best for: Organizations needing only specific versions
+
+3. **SWNG Mirror with yum-reposync** (`ansible/yum-reposync/`)
+   - Uses yum-reposync for selective repository mirroring
+   - Automatic metadata generation
+   - Best for: Selective repository mirroring
+
+4. **Combined CloudLinux and SWNG Mirror** (`ansible/combined-mirror/`)
+   - Mirrors both CloudLinux and SWNG repositories
+   - Supports combined or separate sync modes
+   - Best for: Complete mirror infrastructure
+
+### Quick Start with Ansible
+
+1. **Install Ansible** (if not already installed):
+
+```bash
+# On RHEL/CentOS/CloudLinux
+yum install -y ansible
+
+# On Debian/Ubuntu
+apt-get install -y ansible
+```
+
+2. **Choose a playbook** and navigate to its directory:
+
+```bash
+cd ansible/complete-swng-rsync
+```
+
+3. **Edit the inventory file** (`inventory.ini`) with your server details:
+
+```ini
+[mirror_servers]
+mirror-server-01 ansible_host=192.168.1.100
+
+[mirror_servers:vars]
+ansible_user=root
+ansible_ssh_private_key_file=~/.ssh/id_rsa
+```
+
+4. **Run the playbook**:
+
+```bash
+ansible-playbook -i inventory.ini playbook.yml
+```
+
+### Ansible Use Cases
+
+- **Infrastructure Automation**: Automate mirror setup across multiple servers
+- **Configuration Management**: Version-controlled mirror configurations
+- **Multi-Environment Setup**: Easily replicate mirror setups in dev/staging/prod
+- **Compliance**: Documented, repeatable infrastructure setup
+- **Team Collaboration**: Shareable, maintainable mirror configurations
+
+### Customization
+
+Each playbook supports extensive customization through variables:
+
+```bash
+# Override default variables
+ansible-playbook -i inventory.ini playbook.yml \
+  -e "mirror_base_path=/opt/mirrors" \
+  -e "sync_interval_hours=6"
+
+# Use variables file
+ansible-playbook -i inventory.ini playbook.yml -e @vars.yml
+```
+
+For detailed documentation, see `ansible/README.md` and individual playbook README files.
+
+## Containerized Mirror Setup with Docker
+
+For containerized environments or when you want isolated mirror processes, Docker and Docker Compose configurations are available.
+
+### Available Docker Setups
+
+The repository includes several Docker configurations located in the `docker/` directory:
+
+1. **Complete SWNG Mirror** (`docker/complete-swng-rsync/`)
+   - Containerized complete SWNG mirror
+   - Cron-based automated syncs
+   - Best for: Containerized SWNG mirroring
+
+2. **Specific Version Mirror** (`docker/specific-version-rsync/`)
+   - Containerized version-specific mirrors
+   - Separate containers per version
+   - Best for: Version-specific containerized mirrors
+
+3. **SWNG Mirror with yum-reposync** (`docker/yum-reposync/`)
+   - Containerized selective repository mirroring
+   - Automatic metadata generation
+   - Best for: Selective containerized mirroring
+
+4. **Combined CloudLinux and SWNG Mirror** (`docker/combined-mirror/`)
+   - Containerized complete mirror setup
+   - Optional Nginx web server included
+   - Best for: Complete containerized mirror infrastructure
+
+### Quick Start with Docker Compose
+
+1. **Navigate to a Docker setup directory**:
+
+```bash
+cd docker/complete-swng-rsync
+```
+
+2. **Create data directories**:
+
+```bash
+mkdir -p mirror-data logs
+```
+
+3. **Start the container**:
+
+```bash
+docker-compose up -d
+```
+
+4. **View logs**:
+
+```bash
+docker-compose logs -f
+```
+
+### Docker Use Cases
+
+- **Containerized Infrastructure**: Run mirrors in isolated containers
+- **Easy Deployment**: Simple `docker-compose up` to start mirroring
+- **Resource Isolation**: Controlled CPU and memory usage
+- **Portability**: Run on any Docker-compatible platform
+- **Development/Testing**: Quick setup for testing mirror configurations
+- **Microservices Architecture**: Integrate mirrors into containerized environments
+- **Cloud Deployments**: Deploy mirrors in Kubernetes, Docker Swarm, or cloud container services
+
+### Docker Configuration Options
+
+All Docker setups support environment variable configuration:
+
+```yaml
+# docker-compose.yml
+environment:
+  - RSYNC_SOURCE=rsync://rsync.upstream.cloudlinux.com/SWNG/
+  - MIRROR_PATH=/var/www/mirrors/swng
+  - INITIAL_SYNC=true
+  - SYNC_INTERVAL_HOURS=4
+```
+
+### Volume Management
+
+Mirror data and logs are stored in persistent volumes:
+
+```yaml
+volumes:
+  - ./mirror-data:/var/www/mirrors/swng
+  - ./logs:/var/log
+```
+
+### Resource Limits
+
+Docker Compose configurations include resource limits:
+
+```yaml
+deploy:
+  resources:
+    limits:
+      cpus: '2'
+      memory: 2G
+```
+
+### Serving Mirrors from Containers
+
+The combined mirror setup includes an optional Nginx service:
+
+```bash
+# Access mirrors via web server
+curl http://localhost/cloudlinux/
+curl http://localhost/swng/
+```
+
+For detailed documentation, see `docker/README.md` and individual setup README files.
+
+## Choosing the Right Approach
+
+### Manual Setup (RSync/Systemd)
+**Best for:**
+- Single server setups
+- Full control over configuration
+- Learning and understanding the process
+- Custom requirements
+
+**Advantages:**
+- Direct system integration
+- No additional dependencies
+- Full visibility and control
+
+### Ansible Playbooks
+**Best for:**
+- Multiple server management
+- Infrastructure-as-code practices
+- Version-controlled configurations
+- Team collaboration
+- Automated deployments
+
+**Advantages:**
+- Repeatable, documented setup
+- Multi-server automation
+- Configuration management
+- Easy updates and maintenance
+
+### Docker Containers
+**Best for:**
+- Containerized environments
+- Quick deployment and testing
+- Resource isolation
+- Cloud deployments
+- Microservices architecture
+
+**Advantages:**
+- Isolation and portability
+- Easy deployment
+- Resource control
+- Consistent environments
+
+### Comparison Summary
+
+| Feature | Manual | Ansible | Docker |
+|---------|--------|---------|--------|
+| Setup Complexity | Medium | Low | Low |
+| Multi-Server | Manual | Automated | Per Container |
+| Configuration Management | Manual | Version Controlled | Container Config |
+| Resource Isolation | No | No | Yes |
+| Portability | Low | Medium | High |
+| Learning Curve | Medium | Medium | Low |
+| Best For | Single Server | Multiple Servers | Containerized |
+
 ## Using apt-mirror (For Debian/Ubuntu-based Systems)
 
 If you're mirroring on a Debian/Ubuntu system:
@@ -925,9 +1197,20 @@ rsync -avz --delete \
 
 `upstream.cloudlinux.com` provides a reliable, efficient way to create and maintain local mirrors of CloudLinux repositories. Whether you use HTTP/HTTPS for occasional downloads or RSync for complete mirroring, this service ensures you have the content you need when you need it.
 
-Key advantages:
+### Key Advantages
+
 - ✅ No authentication required
 - ✅ Multiple access methods (HTTP/HTTPS, RSync)
 - ✅ Efficient incremental updates
 - ✅ Complete repository content
 - ✅ Reliable and maintained by CloudLinux
+
+### Automation Options
+
+This repository provides multiple approaches to set up and maintain mirrors:
+
+1. **Manual Setup**: Direct RSync commands and systemd timers for full control
+2. **Ansible Playbooks**: Infrastructure-as-code automation for multiple servers
+3. **Docker Containers**: Containerized mirror setups for isolated, portable deployments
+
+Choose the approach that best fits your infrastructure and requirements. All methods support the same mirroring capabilities with different levels of automation and deployment flexibility.
