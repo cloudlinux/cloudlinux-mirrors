@@ -1,0 +1,116 @@
+---
+- name: Setup SWNG Mirror with yum-reposync
+  hosts: mirror_servers
+  become: yes
+  vars:
+    mirror_base_path: /var/www/mirrors
+    swng_mirror_path: "{{ mirror_base_path }}/swng"
+    sync_log_file: /var/log/swng-reposync.log
+    sync_interval_hours: 6
+    timer_schedule: "*-*-* 00,06,12,18:00:00"
+    service_name: swng-reposync
+    # List of repositories to sync
+    swng_repos:
+      - name: SWNG-9-x86_64
+        baseurl: https://upstream.cloudlinux.com/swng/9/x86_64/
+        enabled: true
+      - name: SWNG-8-x86_64
+        baseurl: https://upstream.cloudlinux.com/swng/8/x86_64/
+        enabled: true
+
+  tasks:
+    - name: Check available disk space
+      command: df -h {{ mirror_base_path }}
+      register: disk_space
+      changed_when: false
+
+    - name: Display available disk space
+      debug:
+        msg: "{{ disk_space.stdout_lines }}"
+
+    - name: Install required packages
+      package:
+        name:
+          - yum-utils
+          - createrepo
+        state: present
+
+    - name: Create mirror directory
+      file:
+        path: "{{ swng_mirror_path }}"
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+        recurse: yes
+
+    - name: Create SWNG repository configuration file
+      template:
+        src: swng-upstream.repo.j2
+        dest: /etc/yum.repos.d/swng-upstream.repo
+        mode: '0644'
+      notify: clean yum cache
+
+    - name: Import CloudLinux GPG key if not present
+      rpm_key:
+        state: present
+        key: https://repo.cloudlinux.com/cloudlinux/RPM-GPG-KEY-cloudlinux
+      ignore_errors: yes
+
+    - name: Perform initial repository sync
+      command: >
+        reposync -p {{ swng_mirror_path }}/
+        {% for repo in swng_repos %}
+        {% if repo.enabled %}
+        -r {{ repo.name }}
+        {% endif %}
+        {% endfor %}
+      async: 3600
+      poll: 0
+      register: initial_sync
+      ignore_errors: yes
+
+    - name: Update repository metadata for synced repos
+      command: createrepo {{ swng_mirror_path }}/{{ item.name }}/
+      loop: "{{ swng_repos }}"
+      when: item.enabled
+      ignore_errors: yes
+
+    - name: Create systemd service for SWNG reposync
+      template:
+        src: swng-reposync.service.j2
+        dest: "/etc/systemd/system/{{ service_name }}.service"
+        mode: '0644'
+      notify: reload systemd
+
+    - name: Create systemd timer for SWNG reposync
+      template:
+        src: swng-reposync.timer.j2
+        dest: "/etc/systemd/system/{{ service_name }}.timer"
+        mode: '0644'
+      notify: reload systemd
+
+    - name: Enable and start SWNG reposync timer
+      systemd:
+        name: "{{ service_name }}.timer"
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    - name: Check timer status
+      command: systemctl status {{ service_name }}.timer
+      register: timer_status
+      changed_when: false
+
+    - name: Display timer status
+      debug:
+        msg: "{{ timer_status.stdout_lines }}"
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: clean yum cache
+      command: yum clean all
+      ignore_errors: yes

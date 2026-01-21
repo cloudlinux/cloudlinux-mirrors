@@ -1,0 +1,14 @@
+[Unit]
+Description=Sync SWNG Repositories with reposync
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/reposync -p {{ swng_mirror_path }}/ {% for repo in swng_repos %}{% if repo.enabled %}-r {{ repo.name }} {% endif %}{% endfor %}
+{% for repo in swng_repos %}
+{% if repo.enabled %}
+ExecStartPost=/usr/bin/createrepo {{ swng_mirror_path }}/{{ repo.name }}/
+{% endif %}
+{% endfor %}
+StandardOutput=append:{{ sync_log_file }}
+StandardError=append:{{ sync_log_file }}

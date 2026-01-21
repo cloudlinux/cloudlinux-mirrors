@@ -1,0 +1,91 @@
+---
+- name: Setup Specific SWNG Version Mirror with RSync
+  hosts: mirror_servers
+  become: yes
+  vars:
+    mirror_base_path: /var/www/mirrors
+    cloudlinux_version: 9  # Options: 8, 9
+    swng_mirror_path: "{{ mirror_base_path }}/swng/{{ cloudlinux_version }}"
+    rsync_source: "rsync://rsync.upstream.cloudlinux.com/SWNG/{{ cloudlinux_version }}/"
+    sync_log_file: "/var/log/swng-{{ cloudlinux_version }}-mirror.log"
+    sync_interval_hours: 6
+    timer_schedule: "*-*-* 00,06,12,18:00:00"
+    service_name: "swng-{{ cloudlinux_version }}-mirror"
+
+  tasks:
+    - name: Validate CloudLinux version
+      assert:
+        that:
+          - cloudlinux_version in [8, 9, '8', '9']
+        fail_msg: "cloudlinux_version must be 8 or 9"
+        success_msg: "CloudLinux version {{ cloudlinux_version }} is valid"
+
+    - name: Check available disk space
+      command: df -h {{ mirror_base_path }}
+      register: disk_space
+      changed_when: false
+
+    - name: Display available disk space
+      debug:
+        msg: "{{ disk_space.stdout_lines }}"
+
+    - name: Create mirror directory
+      file:
+        path: "{{ swng_mirror_path }}"
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+        recurse: yes
+
+    - name: Install rsync if not present
+      package:
+        name: rsync
+        state: present
+
+    - name: Perform initial SWNG {{ cloudlinux_version }} repository sync
+      command: >
+        rsync -av --delete
+        --progress
+        --log-file={{ sync_log_file }}
+        {{ rsync_source }}
+        {{ swng_mirror_path }}/
+      async: 3600
+      poll: 0
+      register: initial_sync
+      ignore_errors: yes
+
+    - name: Create systemd service for SWNG {{ cloudlinux_version }} mirror sync
+      template:
+        src: swng-version-mirror.service.j2
+        dest: "/etc/systemd/system/{{ service_name }}.service"
+        mode: '0644'
+      notify: reload systemd
+
+    - name: Create systemd timer for SWNG {{ cloudlinux_version }} mirror sync
+      template:
+        src: swng-version-mirror.timer.j2
+        dest: "/etc/systemd/system/{{ service_name }}.timer"
+        mode: '0644'
+      notify: reload systemd
+
+    - name: Enable and start SWNG {{ cloudlinux_version }} mirror timer
+      systemd:
+        name: "{{ service_name }}.timer"
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    - name: Check timer status
+      command: systemctl status {{ service_name }}.timer
+      register: timer_status
+      changed_when: false
+
+    - name: Display timer status
+      debug:
+        msg: "{{ timer_status.stdout_lines }}"
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes

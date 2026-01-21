@@ -1,0 +1,161 @@
+---
+- name: Setup Combined CloudLinux and SWNG Mirror
+  hosts: mirror_servers
+  become: yes
+  vars:
+    mirror_base_path: /var/www/mirrors
+    cloudlinux_mirror_path: "{{ mirror_base_path }}/cloudlinux"
+    swng_mirror_path: "{{ mirror_base_path }}/swng"
+    cloudlinux_rsync_source: rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/
+    swng_rsync_source: rsync://rsync.upstream.cloudlinux.com/SWNG/
+    cloudlinux_sync_log: /var/log/cloudlinux-mirror.log
+    swng_sync_log: /var/log/swng-mirror.log
+    combined_sync_log: /var/log/cloudlinux-complete-mirror.log
+    sync_interval_hours: 4
+    timer_schedule: "*-*-* 00,04,08,12,16,20:00:00"
+    service_name: cloudlinux-complete-mirror
+    # Options: 'combined' (single timer for both), 'separate' (separate timers)
+    sync_mode: combined
+
+  tasks:
+    - name: Check available disk space
+      command: df -h {{ mirror_base_path }}
+      register: disk_space
+      changed_when: false
+
+    - name: Display available disk space
+      debug:
+        msg: "{{ disk_space.stdout_lines }}"
+
+    - name: Create CloudLinux mirror directory
+      file:
+        path: "{{ cloudlinux_mirror_path }}"
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+        recurse: yes
+
+    - name: Create SWNG mirror directory
+      file:
+        path: "{{ swng_mirror_path }}"
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+        recurse: yes
+
+    - name: Install rsync if not present
+      package:
+        name: rsync
+        state: present
+
+    - name: Perform initial CloudLinux repository sync
+      command: >
+        rsync -av --delete
+        --progress
+        --log-file={{ cloudlinux_sync_log }}
+        {{ cloudlinux_rsync_source }}
+        {{ cloudlinux_mirror_path }}/
+      async: 3600
+      poll: 0
+      register: cloudlinux_initial_sync
+      ignore_errors: yes
+
+    - name: Perform initial SWNG repository sync
+      command: >
+        rsync -av --delete
+        --progress
+        --log-file={{ swng_sync_log }}
+        {{ swng_rsync_source }}
+        {{ swng_mirror_path }}/
+      async: 3600
+      poll: 0
+      register: swng_initial_sync
+      ignore_errors: yes
+
+    - name: Create combined systemd service (when sync_mode is combined)
+      template:
+        src: cloudlinux-complete-mirror.service.j2
+        dest: "/etc/systemd/system/{{ service_name }}.service"
+        mode: '0644'
+      when: sync_mode == 'combined'
+      notify: reload systemd
+
+    - name: Create combined systemd timer (when sync_mode is combined)
+      template:
+        src: cloudlinux-complete-mirror.timer.j2
+        dest: "/etc/systemd/system/{{ service_name }}.timer"
+        mode: '0644'
+      when: sync_mode == 'combined'
+      notify: reload systemd
+
+    - name: Create separate CloudLinux service (when sync_mode is separate)
+      template:
+        src: cloudlinux-mirror.service.j2
+        dest: /etc/systemd/system/cloudlinux-mirror.service
+        mode: '0644'
+      when: sync_mode == 'separate'
+      notify: reload systemd
+
+    - name: Create separate CloudLinux timer (when sync_mode is separate)
+      template:
+        src: cloudlinux-mirror.timer.j2
+        dest: /etc/systemd/system/cloudlinux-mirror.timer
+        mode: '0644'
+      when: sync_mode == 'separate'
+      notify: reload systemd
+
+    - name: Create separate SWNG service (when sync_mode is separate)
+      template:
+        src: swng-mirror.service.j2
+        dest: /etc/systemd/system/swng-mirror.service
+        mode: '0644'
+      when: sync_mode == 'separate'
+      notify: reload systemd
+
+    - name: Create separate SWNG timer (when sync_mode is separate)
+      template:
+        src: swng-mirror.timer.j2
+        dest: /etc/systemd/system/swng-mirror.timer
+        mode: '0644'
+      when: sync_mode == 'separate'
+      notify: reload systemd
+
+    - name: Enable and start combined timer (when sync_mode is combined)
+      systemd:
+        name: "{{ service_name }}.timer"
+        enabled: yes
+        state: started
+        daemon_reload: yes
+      when: sync_mode == 'combined'
+
+    - name: Enable and start separate timers (when sync_mode is separate)
+      systemd:
+        name: "{{ item }}.timer"
+        enabled: yes
+        state: started
+        daemon_reload: yes
+      loop:
+        - cloudlinux-mirror
+        - swng-mirror
+      when: sync_mode == 'separate'
+
+    - name: Check timer status
+      command: >
+        {% if sync_mode == 'combined' %}
+        systemctl status {{ service_name }}.timer
+        {% else %}
+        systemctl status cloudlinux-mirror.timer swng-mirror.timer
+        {% endif %}
+      register: timer_status
+      changed_when: false
+
+    - name: Display timer status
+      debug:
+        msg: "{{ timer_status.stdout_lines }}"
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes

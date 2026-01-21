@@ -1,0 +1,81 @@
+---
+- name: Setup Complete SWNG Repository Mirror with RSync
+  hosts: mirror_servers
+  become: yes
+  vars:
+    mirror_base_path: /var/www/mirrors
+    swng_mirror_path: "{{ mirror_base_path }}/swng"
+    rsync_source: rsync://rsync.upstream.cloudlinux.com/SWNG/
+    sync_log_file: /var/log/swng-mirror.log
+    sync_interval_hours: 4
+    timer_schedule: "*-*-* 00,04,08,12,16,20:00:00"
+
+  tasks:
+    - name: Check available disk space
+      command: df -h {{ mirror_base_path }}
+      register: disk_space
+      changed_when: false
+
+    - name: Display available disk space
+      debug:
+        msg: "{{ disk_space.stdout_lines }}"
+
+    - name: Create mirror directory
+      file:
+        path: "{{ swng_mirror_path }}"
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: Install rsync if not present
+      package:
+        name: rsync
+        state: present
+
+    - name: Perform initial SWNG repository sync
+      command: >
+        rsync -av --delete
+        --progress
+        --log-file={{ sync_log_file }}
+        {{ rsync_source }}
+        {{ swng_mirror_path }}/
+      async: 3600
+      poll: 0
+      register: initial_sync
+      ignore_errors: yes
+
+    - name: Create systemd service for SWNG mirror sync
+      template:
+        src: swng-mirror.service.j2
+        dest: /etc/systemd/system/swng-mirror.service
+        mode: '0644'
+      notify: reload systemd
+
+    - name: Create systemd timer for SWNG mirror sync
+      template:
+        src: swng-mirror.timer.j2
+        dest: /etc/systemd/system/swng-mirror.timer
+        mode: '0644'
+      notify: reload systemd
+
+    - name: Enable and start SWNG mirror timer
+      systemd:
+        name: swng-mirror.timer
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    - name: Check timer status
+      command: systemctl status swng-mirror.timer
+      register: timer_status
+      changed_when: false
+
+    - name: Display timer status
+      debug:
+        msg: "{{ timer_status.stdout_lines }}"
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes

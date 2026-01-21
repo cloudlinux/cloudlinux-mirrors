@@ -1,0 +1,9 @@
+[Unit]
+Description=Sync Complete SWNG Repository Mirror
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rsync -av --delete {{ rsync_source }} {{ swng_mirror_path }}/
+StandardOutput=append:{{ sync_log_file }}
+StandardError=append:{{ sync_log_file }}
