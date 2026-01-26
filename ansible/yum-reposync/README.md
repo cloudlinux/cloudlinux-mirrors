@@ -138,6 +138,8 @@ ansible-playbook -i inventory.ini playbook.yml -e @vars.yml
 8. Creates systemd service for automated syncing
 9. Creates systemd timer for scheduled updates
 10. Enables and starts the timer
+11. Installs and configures Nginx web server
+12. Enables and starts Nginx to serve the mirror
 
 ## Verification
 
@@ -158,7 +160,22 @@ cat /etc/yum.repos.d/swng-upstream.repo
 
 # Verify synced repositories
 ls -lh /var/www/mirrors/swng/
+
+# Check Nginx status
+systemctl status nginx
+
+# Test web access
+curl http://localhost/swng/
 ```
+
+## Accessing the Mirror via Web
+
+The playbook configures Nginx to serve the mirror on port 80. You can access it via:
+
+- **Local access**: `http://localhost/swng/`
+- **Network access**: `http://<server-ip>/swng/`
+
+The Nginx configuration enables directory browsing, so you can navigate the repository structure through a web browser.
 
 ## Notes
 

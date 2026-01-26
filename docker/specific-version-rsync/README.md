@@ -126,6 +126,24 @@ docker-compose up -d swng-9-mirror
 docker-compose up -d swng-8-mirror
 ```
 
+## Accessing the Mirror via Web
+
+The Docker Compose setup includes an Nginx service that automatically serves the mirrors. The mirrors are accessible via:
+
+- **CloudLinux 9**: `http://localhost/swng/9/`
+- **CloudLinux 8**: `http://localhost/swng/8/` (if enabled)
+- **Network access**: `http://<server-ip>/swng/<version>/`
+
+The Nginx configuration enables directory browsing, so you can navigate the repository structure through a web browser.
+
+### Nginx Service
+
+The `docker-compose.yml` includes a pre-configured Nginx service that:
+- Serves the mirror data from the `mirror-data` directory
+- Enables directory browsing for each version
+- Runs on port 80
+- Automatically starts with the mirror containers
+
 ## Notes
 
 - Each version requires its own container
@@ -133,3 +151,4 @@ docker-compose up -d swng-8-mirror
 - The container runs cron internally for scheduled syncs
 - Mirror data persists in the `mirror-data` directory
 - Logs are stored in the `logs` directory
+- Nginx automatically serves the mirrors via HTTP

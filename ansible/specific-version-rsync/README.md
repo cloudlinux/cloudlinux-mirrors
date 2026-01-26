@@ -99,6 +99,8 @@ ansible-playbook -i inventory.ini playbook.yml -e "cloudlinux_version=9"
 6. Creates systemd service for automated syncing
 7. Creates systemd timer for scheduled updates
 8. Enables and starts the timer
+9. Installs and configures Nginx web server
+10. Enables and starts Nginx to serve the mirror
 
 ## Verification
 
@@ -116,7 +118,22 @@ tail -f /var/log/swng-9-mirror.log
 
 # Verify mirror directory
 ls -lh /var/www/mirrors/swng/9/
+
+# Check Nginx status
+systemctl status nginx
+
+# Test web access
+curl http://localhost/swng/9/
 ```
+
+## Accessing the Mirror via Web
+
+The playbook configures Nginx to serve the mirror on port 80. You can access it via:
+
+- **Local access**: `http://localhost/swng/9/` (or `/swng/8/` for CloudLinux 8)
+- **Network access**: `http://<server-ip>/swng/9/`
+
+The Nginx configuration enables directory browsing, so you can navigate the repository structure through a web browser.
 
 ## Notes
 

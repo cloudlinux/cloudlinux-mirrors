@@ -1,4 +1,5 @@
 # SWNG Repository Configuration for upstream.cloudlinux.com
+# Source: https://upstream.cloudlinux.com/swng/
 
 [SWNG-9-x86_64]
 name=CloudLinux 9 SWNG x86_64

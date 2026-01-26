@@ -9,7 +9,18 @@
     sync_interval_hours: 6
     timer_schedule: "*-*-* 00,06,12,18:00:00"
     service_name: swng-reposync
+    # SSL/Certbot configuration
+    mirror_domain: "{{ inventory_hostname }}"
+    certbot_email: "admin@{{ mirror_domain }}"
+    certbot_authenticator: standalone  # Options: standalone, webroot
+    certbot_webroot: "{{ mirror_base_path }}/acme"
+    certbot_enabled: true
+    certbot_cron_enabled: true
+    certbot_cron_schedule:
+      minute: 0
+      hour: 3
     # List of repositories to sync
+    # Source: https://upstream.cloudlinux.com/swng/
     swng_repos:
       - name: SWNG-9-x86_64
         baseurl: https://upstream.cloudlinux.com/swng/9/x86_64/
@@ -106,6 +117,111 @@
       debug:
         msg: "{{ timer_status.stdout_lines }}"
 
+    - name: Install Nginx
+      package:
+        name: nginx
+        state: present
+
+    - name: Create Nginx configuration for SWNG reposync mirror
+      template:
+        src: nginx.conf.j2
+        dest: /etc/nginx/conf.d/swng-reposync-mirror.conf
+        mode: '0644'
+      notify: restart nginx
+
+    - name: Enable and start Nginx (for certbot)
+      systemd:
+        name: nginx
+        enabled: yes
+        state: started
+      when: certbot_enabled | bool
+
+    - name: Install certbot packages
+      package:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+      when: certbot_enabled | bool
+
+    - name: Create webroot for ACME challenge (when using webroot)
+      file:
+        path: "{{ certbot_webroot }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      when: certbot_enabled | bool and certbot_authenticator == 'webroot'
+
+    - name: Stop nginx for standalone auth (if running)
+      systemd:
+        name: nginx
+        state: stopped
+      when: certbot_enabled | bool and certbot_authenticator == 'standalone'
+      ignore_errors: true
+
+    - name: Obtain Let's Encrypt cert using standalone
+      command: >
+        certbot certonly --standalone --preferred-challenges http
+        --non-interactive --agree-tos
+        --email {{ certbot_email }}
+        -d {{ mirror_domain }}
+      args:
+        creates: "/etc/letsencrypt/live/{{ mirror_domain }}/fullchain.pem"
+      when: certbot_enabled | bool and certbot_authenticator == 'standalone'
+      ignore_errors: true
+
+    - name: Obtain Let's Encrypt cert using webroot
+      command: >
+        certbot certonly --webroot
+        --webroot-path {{ certbot_webroot }}
+        --non-interactive --agree-tos
+        --email {{ certbot_email }}
+        -d {{ mirror_domain }}
+      args:
+        creates: "/etc/letsencrypt/live/{{ mirror_domain }}/fullchain.pem"
+      when: certbot_enabled | bool and certbot_authenticator == 'webroot'
+      ignore_errors: true
+
+    - name: Start nginx after standalone certbot
+      systemd:
+        name: nginx
+        state: started
+      when: certbot_enabled | bool and certbot_authenticator == 'standalone'
+
+    - name: Create Nginx HTTPS configuration for SWNG reposync mirror
+      template:
+        src: nginx-https.conf.j2
+        dest: /etc/nginx/conf.d/swng-reposync-mirror-https.conf
+        mode: '0644'
+      notify: restart nginx
+      when: certbot_enabled | bool
+
+    - name: Update HTTP Nginx configuration to redirect to HTTPS
+      template:
+        src: nginx.conf.j2
+        dest: /etc/nginx/conf.d/swng-reposync-mirror.conf
+        mode: '0644'
+      notify: restart nginx
+      when: certbot_enabled | bool
+
+    - name: Ensure certbot renew cron job exists
+      cron:
+        name: "Certbot renew"
+        job: "certbot renew --quiet --deploy-hook 'systemctl reload nginx'"
+        minute: "{{ certbot_cron_schedule.minute }}"
+        hour: "{{ certbot_cron_schedule.hour }}"
+      when: certbot_enabled | bool and certbot_cron_enabled | bool
+
+    - name: Check Nginx status
+      command: systemctl status nginx
+      register: nginx_status
+      changed_when: false
+
+    - name: Display Nginx status
+      debug:
+        msg: "{{ nginx_status.stdout_lines }}"
+
   handlers:
     - name: reload systemd
       systemd:
@@ -114,3 +230,8 @@
     - name: clean yum cache
       command: yum clean all
       ignore_errors: yes
+
+    - name: restart nginx
+      systemd:
+        name: nginx
+        state: restarted

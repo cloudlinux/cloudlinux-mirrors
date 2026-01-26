@@ -105,24 +105,22 @@ docker-compose down
 2. Rebuild the image: `docker-compose build`
 3. Restart: `docker-compose up -d`
 
-## Serving the Mirror
+## Accessing the Mirror via Web
 
-After the mirror is set up, you can serve it using a web server. Add a web server service to `docker-compose.yml`:
+The Docker Compose setup includes an Nginx service that automatically serves the mirror. The mirror is accessible via:
 
-```yaml
-  nginx:
-    image: nginx:alpine
-    container_name: swng-nginx
-    ports:
-      - "80:80"
-    volumes:
-      - ./mirror-data:/usr/share/nginx/html/swng:ro
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-    depends_on:
-      - swng-mirror
-    networks:
-      - mirror-network
-```
+- **Local access**: `http://localhost/swng/`
+- **Network access**: `http://<server-ip>/swng/`
+
+The Nginx configuration enables directory browsing, so you can navigate the repository structure through a web browser.
+
+### Nginx Service
+
+The `docker-compose.yml` includes a pre-configured Nginx service that:
+- Serves the mirror data from the `mirror-data` directory
+- Enables directory browsing
+- Runs on port 80
+- Automatically starts with the mirror container
 
 ## Troubleshooting
 

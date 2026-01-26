@@ -121,6 +121,23 @@ docker-compose exec swng-reposync /usr/local/bin/sync-script.sh
 - **RSync**: More efficient for complete mirroring, better for bandwidth usage
 - Choose based on your needs: selective repos (yum-reposync) vs complete mirror (RSync)
 
+## Accessing the Mirror via Web
+
+The Docker Compose setup includes an Nginx service that automatically serves the mirror. The mirror is accessible via:
+
+- **Local access**: `http://localhost/swng/`
+- **Network access**: `http://<server-ip>/swng/`
+
+The Nginx configuration enables directory browsing, so you can navigate the repository structure through a web browser.
+
+### Nginx Service
+
+The `docker-compose.yml` includes a pre-configured Nginx service that:
+- Serves the mirror data from the `mirror-data` directory
+- Enables directory browsing
+- Runs on port 80
+- Automatically starts with the mirror container
+
 ## Notes
 
 - Initial sync may take several hours
@@ -129,3 +146,4 @@ docker-compose exec swng-reposync /usr/local/bin/sync-script.sh
 - Mirror data persists in the `mirror-data` directory
 - Logs are stored in the `logs` directory
 - Only repositories listed in `REPOS` environment variable will be synced
+- Nginx automatically serves the mirrors via HTTP
