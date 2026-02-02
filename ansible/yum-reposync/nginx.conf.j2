@@ -18,6 +18,12 @@ server {
         try_files $uri $uri/ =404;
     }
 
+    # Optional SWNG prefix for mixed setups
+    location /swng/ {
+        alias {{ swng_mirror_path }}/;
+        autoindex on;
+    }
+
     # Allow large file downloads
     client_max_body_size 0;
 }

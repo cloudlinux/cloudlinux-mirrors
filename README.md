@@ -32,8 +32,6 @@
 - Current and actively maintained CloudLinux versions (8, 9, 10, etc.)
 - The primary repository used by CloudLinux systems for day-to-day operations
 
-*Note: SWNG is an acronym for "Spacewalk (open source Red Hat tool for distribution) Next Generation".*
-
 **repo.cloudlinux.com** (accessed via `upstream.cloudlinux.com/cloudlinux/`) contains:
 - Scripts and tools required for system conversions
 - Installation images and ISO files
@@ -69,11 +67,41 @@ The CloudLinux package delivery system operates in two phases:
 - No manual repository URL configuration needed on client systems
 - Support for private mirrors for specific networks while maintaining standard configuration
 - **Selective version mirroring**: The new SWNG mirror system allows mirroring only the specific CloudLinux versions you need, unlike the old system which required mirroring all versions
-- **Selective mirroring**: The new SWNG mirror system allows mirroring only the specific CloudLinux versions you need, unlike the old system which required mirroring all versions
+
+### Mirror System Changes (Old vs New)
+
+The new mirroring system is gradually replacing the old one. Key changes and behaviors:
+
+**What is changing for customers:**
+- **Open HTTPS mirrors**: Mirrors are fully accessible over standard HTTPS (no custom SSL or XMLRPC transport), so customers can fully set up and control mirrors.
+- **New mirror service endpoint**: `https://repo.cloudlinux.com/cloudlinux/mirrorlists/cl-mirrors` replaces the old `https://repo.cloudlinux.com/cloudlinux/mirrorlists/cln-mirrors`.
+- **Automatic client transition**: The mirrorlist URL used by CloudLinux OS is updated automatically by `rhn-client-tools` and `cloudlinux-release` package updates.
+- **Partial mirror support**: The new mirror service supports mirrors that carry only some OS versions, reducing storage and bandwidth.
+- **Autonomous install/conversion**: `repo.cloudlinux.com` content can be freely synced, enabling a fully autonomous environment for installation and conversion.
+
+**Legacy vs new mirrorlist usage (behavioral differences):**
+- The **old** `cln-mirrors` endpoint was required for systems using the legacy yum-rhn-plugin/XMLRPC flow and custom SSL certificates.
+- The **new** `cl-mirrors` endpoint is used with standard `mirrorlist=` entries in `.repo` files and works with publicly accessible HTTPS mirrors.
+- These endpoints are **not interchangeable**; client updates move systems to the new endpoint automatically.
+
+**Why open HTTPS mirrors matter:**
+- Mirror content is browsable and verifiable in a standard browser or with `curl`.
+- Customers can host mirrors on their own infrastructure without special SSL tooling.
+- Standard HTTP tooling and monitoring works out of the box (no XMLRPC transport).
+
+**Mirror service behavior (high level):**
+- The service returns a list of nearby, available mirrors based on requester IP.
+- Mirrors can be **public** or **private** (IP/network-scoped).
+- With the new service, mirrors can be **partial** (only some versions), and clients still get a valid list of mirrors that match their version.
+
+**Installation and conversion flow impact:**
+- `repo.cloudlinux.com` is used for install/conversion assets and legacy content.
+- After conversion/installation, systems switch to **SWNG** for operational updates.
+- Because the full `repo.cloudlinux.com` is large, most mirrors should **sync it partially** (only the needed repositories) unless a fully autonomous environment is required.
 
 ## What is upstream.cloudlinux.com?
 
-`upstream.cloudlinux.com` is a special repository service that provides:
+`upstream.cloudlinux.com` is a new repository service that provides:
 
 - **Unrestricted Access:** No authentication required for downloading repository content
 - **Multiple Access Methods:** Both HTTP/HTTPS and RSync protocols
@@ -130,7 +158,7 @@ Use this method for:
 - `SWNG` - **SWNG repository (main operational repository)** - Contains all packages for operational systems
 - `CLOUDLINUX` - CloudLinux repository (conversion tools, images, older versions, source packages)
 
-**Basic RSync Command:**
+**Basic RSync Command Examples:**
 
 ```bash
 # Sync SWNG repository (main operational repository - recommended for most use cases)
@@ -140,18 +168,19 @@ rsync -av --delete rsync://rsync.upstream.cloudlinux.com/SWNG/ /path/to/local/mi
 rsync -av --delete rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ /path/to/local/mirror/cloudlinux/
 ```
 
-**Command Options Explained:**
-- `-a` - Archive mode (preserves permissions, timestamps, etc.)
-- `-v` - Verbose output
-- `--delete` - Delete files in destination that don't exist in source
-- `rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/` - Source module
-- `/path/to/local/mirror/cloudlinux/` - Destination directory
 
 ## Creating a Local Mirror
 
 ### Step 1: Prepare Storage
 
-Ensure you have sufficient disk space. Repository mirrors can require several hundred gigabytes to over a terabyte depending on what you mirror.
+Ensure you have sufficient disk space. Repository mirrors can require several hundred gigabytes to multiple terabytes depending on what you mirror.
+
+**Storage recommendation:** Use a dedicated disk or partition for mirror storage to avoid filling the root filesystem and to improve I/O performance.
+
+**Sizing guidance:**
+- SWNG mirror size is approximately **500 GB**
+- The full `repo.cloudlinux.com` (CloudLinux repository) is **3+ TB**
+- In most cases, **sync `repo.cloudlinux.com` only partially** (only the repositories you actually need)
 
 **Recommendation:** For most production environments, prioritize mirroring **SWNG** (the main operational repository) as it contains all packages needed for operational systems.
 
@@ -160,8 +189,8 @@ Ensure you have sufficient disk space. Repository mirrors can require several hu
 df -h
 
 # Create mirror directories
-mkdir -p /var/www/mirrors/swng      # Main operational repository (recommended)
-mkdir -p /var/www/mirrors/cloudlinux # Conversion tools and legacy packages (optional)
+mkdir -p /var/www/mirrors/swng       # Main operational repository (recommended)
+mkdir -p /var/www/mirrors/cloudlinux # Conversion tools and legacy packages (only if required)
 ```
 
 ### Step 2: Initial Sync
@@ -184,7 +213,7 @@ rsync -av --delete \
 **Optional: Sync CloudLinux Repository (for conversion tools and legacy packages)**
 
 ```bash
-# Sync CloudLinux repository (only if you need conversion tools, images, or legacy packages)
+# Sync CloudLinux repository (only if you want to have fully autonomous setup)
 rsync -av --delete \
   --progress \
   --log-file=/var/log/cloudlinux-mirror.log \
@@ -458,6 +487,31 @@ systemctl start cloudlinux-9-baseos-sync.timer
 - SWNG mirrors are distributed through the mirror service at `https://repo.cloudlinux.com/cloudlinux/mirrorlists/cl-mirrors`
 - CloudLinux systems automatically select the best mirror based on geographic location or network-specific configuration
 - This allows using standard CloudLinux YUM configuration while benefiting from optimized mirror selection
+
+### SWNG Top-Level Layout and Public Index
+
+The SWNG top-level directory is expected to expose the same structure as upstream. In mixed setups, the SWNG content can be under `<domain>/swng/` instead of the site root. The top level includes marker files, version symlinks, and repository directories.
+
+**Example: `upstream/swng` contains:**
+
+```
+10
+8
+8-next
+9
+9-next
+cloudlinux-x86_64-server-10
+cloudlinux-x86_64-server-8.10
+cloudlinux-x86_64-server-9.7
+cloudlinux-i686-server-6
+ubuntu-amd64-debian-linux-server-jammy
+cloudlinux-x86_64-server-8.tgz
+listAllPackagesChecksum
+```
+
+**Notes:**
+- The `8/`, `9/`, `10/` and `*-next` entries are symlinks pointing to the current minor release directories.
+- Directory browsing must be enabled so the index is publicly visible.
 
 This section provides comprehensive examples for creating local mirrors of SWNG repositories.
 
@@ -817,6 +871,68 @@ To have your mirror added to the CloudLinux mirror service (mirrorlist at `https
   - Sync frequency and method
   - Whether it's for public or private use
   - For private use: specific IP addresses or networks that should use this mirror
+
+**Public index requirement (for SWNG):**
+- The domain name/path you provide to CloudLinux support must return a directory index that matches the upstream layout.
+- For mixed setups, the SWNG public index can be under `<domain>/swng/`.
+- Example public page (output similar to upstream):
+
+```
+curl -L https://swng.example.net/
+<html>
+<head><title>Index of /</title></head>
+<body>
+<h1>Index of /</h1><hr><pre><a href="../">../</a>
+<a href="10/">10/</a>
+<a href="8/">8/</a>
+<a href="8-next/">8-next/</a>
+<a href="9/">9/</a>
+<a href="9-next/">9-next/</a>
+<a href="cloudlinux-amd64-debian-linux-server-focal-staging/">cloudlinux-amd64-debian-linux-server-focal-staging/</a>
+<a href="cloudlinux-athlon-server-5/">cloudlinux-athlon-server-5/</a>
+<a href="cloudlinux-i386-server-5/">cloudlinux-i386-server-5/</a>
+<a href="cloudlinux-i386-server-5-hybrid/">cloudlinux-i386-server-5-hybrid/</a>
+<a href="cloudlinux-i386-server-6/">cloudlinux-i386-server-6/</a>
+<a href="cloudlinux-i686-server-5/">cloudlinux-i686-server-5/</a>
+<a href="cloudlinux-i686-server-5-hybrid/">cloudlinux-i686-server-5-hybrid/</a>
+<a href="cloudlinux-i686-server-6/">cloudlinux-i686-server-6/</a>
+<a href="cloudlinux-x86_64-server-10/">cloudlinux-x86_64-server-10/</a>
+<a href="cloudlinux-x86_64-server-5/">cloudlinux-x86_64-server-5/</a>
+<a href="cloudlinux-x86_64-server-5-hybrid/">cloudlinux-x86_64-server-5-hybrid/</a>
+<a href="cloudlinux-x86_64-server-6/">cloudlinux-x86_64-server-6/</a>
+<a href="cloudlinux-x86_64-server-6-hybrid/">cloudlinux-x86_64-server-6-hybrid/</a>
+<a href="cloudlinux-x86_64-server-6-hybrid-legacy/">cloudlinux-x86_64-server-6-hybrid-legacy/</a>
+...
+<a href="cloudlinux-x86_64-server-9.6/">cloudlinux-x86_64-server-9.6/</a>
+<a href="cloudlinux-x86_64-server-9.7/">cloudlinux-x86_64-server-9.7/</a>
+<a href="listAllPackagesChecksum/">listAllPackagesChecksum/</a>
+<a href="lost%2Bfound/">lost+found/</a>
+<a href="ubuntu-amd64-debian-linux-server-jammy/">ubuntu-amd64-debian-linux-server-jammy/</a>
+<a href="cloudlinux-x86_64-server-8.tgz">cloudlinux-x86_64-server-8.tgz</a>
+</pre><hr></body>
+</html>
+```
+
+**Partial SWNG public mirrors (select versions only):**
+- Customers can sync only the required SWNG versions and declare the list to CloudLinux support.
+- Provide the versions you mirror using `swng_options`, for example:
+
+```yaml
+swng_options:
+  repos:
+    - name: "cloudlinux-x86_64-server-9.6"
+      type: "dnf"
+    - name: "cloudlinux-x86_64-server-9.7"
+      type: "dnf"
+    - name: "ubuntu-amd64-debian-linux-server-jammy"
+      type: "apt"
+      dist:
+        url: "stable/22.04"
+        name: "jammy"
+        suites:
+        components:
+          - "main"
+```
 
 ### Mirror Access Options
 

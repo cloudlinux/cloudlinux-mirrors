@@ -169,10 +169,14 @@ tar -czf logs-backup-$(date +%Y%m%d).tar.gz logs/
 
 ### Disk Space
 
-- **Complete SWNG**: 200-500 GB
+- **Complete SWNG**: ~500 GB
 - **Specific Version**: 100-200 GB per version
 - **yum-reposync**: Varies by repositories
-- **Combined Mirror**: 500 GB - 1+ TB
+- **Combined Mirror**: SWNG (~500 GB) + CloudLinux repository (3+ TB)
+
+**Recommendations:**
+- Use a dedicated disk or partition for mirror storage.
+- In most cases, sync `repo.cloudlinux.com` only partially (only the repositories you need).
 
 ## Network Considerations
 
@@ -270,7 +274,7 @@ You can add your own web server service to any `docker-compose.yml`:
     ports:
       - "80:80"
     volumes:
-      - ./mirror-data:/usr/share/nginx/html:ro
+      - ./mirror-data:/storage:ro
     depends_on:
       - <mirror-service>
 ```

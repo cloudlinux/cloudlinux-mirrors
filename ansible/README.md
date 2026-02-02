@@ -77,6 +77,11 @@ ansible-playbook -i inventory.ini playbook.yml
   - Network access to `upstream.cloudlinux.com` or `rsync.upstream.cloudlinux.com`
   - Systemd support
 
+**Storage recommendation:**
+- Use a dedicated disk or partition for mirror storage.
+- SWNG is ~500 GB; the full `repo.cloudlinux.com` repository is 3+ TB.
+- In most cases, sync `repo.cloudlinux.com` only partially (only the repositories you need).
+
 ## Common Variables
 
 Most playbooks support these common variables:
