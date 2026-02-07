@@ -8,6 +8,11 @@ server {
     location /.well-known/acme-challenge/ {
         root {{ certbot_webroot | default('/var/www/mirrors/acme') }};
     }
+
+    # Normalize SWNG path (no trailing slash)
+    location = /swng {
+        return 301 https://$server_name/swng/;
+    }
     
     # Redirect all other traffic to HTTPS
     location / {
@@ -36,6 +41,10 @@ server {
     }
 
     # Optional SWNG prefix for mixed setups
+    location = /swng {
+        return 301 /swng/;
+    }
+
     location /swng/ {
         alias {{ swng_mirror_path }}/;
         autoindex on;

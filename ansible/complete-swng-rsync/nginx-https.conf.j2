@@ -30,6 +30,10 @@ server {
     }
 
     # Optional SWNG prefix for mixed setups
+    location = /swng {
+        return 301 /swng/;
+    }
+
     location /swng/ {
         alias {{ swng_mirror_path }}/;
         autoindex on;
