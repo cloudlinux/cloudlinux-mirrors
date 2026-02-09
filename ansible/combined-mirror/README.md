@@ -6,28 +6,28 @@ This Ansible playbook sets up a complete local mirror of both CloudLinux and SWN
 
 - Ansible 2.9 or later
 - Target server(s) with:
+  - OS almalinux 9 or 10
   - Sufficient disk space (several hundred GB to 1+ TB recommended)
   - Root or sudo access
   - Network access to `rsync.upstream.cloudlinux.com`
   - Systemd support
 
-## Inventory Configuration
+## Disk Space Requirements
 
-Edit `inventory.ini` to specify your mirror server(s):
+Approximate disk space requirements:
 
-```ini
-[mirror_servers]
-mirror-server-01 ansible_host=192.168.1.100
-mirror-server-02 ansible_host=192.168.1.101
+- **CloudLinux only**: 200-500 GB
+- **SWNG only**: 200-500 GB
+- **Combined**: 500 GB - 1+ TB
 
-[mirror_servers:vars]
-ansible_user=root
-ansible_ssh_private_key_file=~/.ssh/id_rsa
-```
+These are rough estimates and will vary based on:
+- CloudLinux versions included
+- Architecture (x86_64, aarch64, etc.)
+- Repository components (BaseOS, AppStream, Extras, etc.)
 
 ## Variables
 
-Key variables you can customize:
+Default variables are defined in `defaults/main.yml`. You can customize the playbook by overriding variables:
 
 - `mirror_base_path`: Base path for mirrors (default: `/var/www/mirrors`)
 - `cloudlinux_mirror_path`: CloudLinux mirror directory (default: `/var/www/mirrors/cloudlinux`)
@@ -37,6 +37,19 @@ Key variables you can customize:
 - `sync_interval_hours`: Sync interval in hours (default: `4`)
 - `timer_schedule`: Systemd timer schedule (default: `*-*-* 00,04,08,12,16,20:00:00`)
 - `sync_mode`: Sync mode - `combined` (single timer) or `separate` (default: `combined`)
+
+## What the Playbook Does
+
+1. Checks available disk space
+2. Creates mirror directories for both CloudLinux and SWNG
+3. Installs rsync if needed
+4. Performs initial sync for both repositories (runs asynchronously)
+5. Creates systemd service(s) for automated syncing
+6. Creates systemd timer(s) for scheduled updates
+7. Enables and starts the timer(s)
+8. Installs and configures Nginx web server
+9. Enables and starts Nginx to serve both mirrors
+
 
 ## Sync Modes
 
@@ -66,59 +79,62 @@ CloudLinux and SWNG have separate systemd services/timers. They can sync indepen
 - More complex management
 - More systemd units
 
-## Usage
+## How to install
+Edit `inventory.ini` to specify your mirror server(s):
 
-### Basic Usage (Combined Mode)
+```ini
+[mirror_servers]
+mirror-server-01 ansible_host=192.168.1.100
+mirror-server-02 ansible_host=192.168.1.101
 
+[mirror_servers:vars]
+ansible_user=root
+ansible_ssh_private_key_file=~/.ssh/id_rsa
+```
+Edit the `defaults/main.yml` if necessary
+```yaml
+# Default variables for Combined CloudLinux and SWNG Mirror Playbook
+
+# Mirror paths
+mirror_base_path: /var/www/mirrors
+cloudlinux_mirror_path: "{{ mirror_base_path }}/cloudlinux"
+swng_mirror_path: "{{ mirror_base_path }}/swng"
+
+# RSync configuration
+cloudlinux_rsync_source: rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/
+swng_rsync_source: rsync://rsync.upstream.cloudlinux.com/SWNG/
+cloudlinux_sync_log: /var/log/cloudlinux-mirror.log
+swng_sync_log: /var/log/swng-mirror.log
+combined_sync_log: /var/log/cloudlinux-complete-mirror.log
+
+# Sync schedule
+sync_interval_hours: 4
+timer_schedule: "*-*-* 00,04,08,12,16,20:00:00"
+service_name: cloudlinux-complete-mirror
+# Options: 'combined' (single timer for both), 'separate' (separate timers)
+sync_mode: combined
+
+# SSL/Certbot configuration
+mirror_domain: "{{ inventory_hostname }}"
+certbot_email: "admin@{{ mirror_domain }}"
+certbot_authenticator: standalone  # Options: standalone, webroot
+certbot_webroot: "{{ mirror_base_path }}/acme"
+certbot_enabled: true
+certbot_cron_enabled: true
+certbot_cron_schedule:
+  minute: 0
+  hour: 3
+```
+Run with:
 ```bash
 ansible-playbook -i inventory.ini playbook.yml
 ```
-
-### Separate Mode
-
+After playbook run for verification
 ```bash
-ansible-playbook -i inventory.ini playbook.yml -e "sync_mode=separate"
+ansible-playbook -i inventory.ini verify.yml
 ```
 
-### With Custom Variables
-
-```bash
-ansible-playbook -i inventory.ini playbook.yml \
-  -e "mirror_base_path=/opt/mirrors" \
-  -e "sync_interval_hours=6" \
-  -e "sync_mode=separate"
-```
-
-### Using a Variables File
-
-Create `vars.yml`:
-
-```yaml
-mirror_base_path: /opt/mirrors
-sync_interval_hours: 6
-timer_schedule: "*-*-* 00,06,12,18:00:00"
-sync_mode: separate
-```
-
-Run with:
-
-```bash
-ansible-playbook -i inventory.ini playbook.yml -e @vars.yml
-```
-
-## What the Playbook Does
-
-1. Checks available disk space
-2. Creates mirror directories for both CloudLinux and SWNG
-3. Installs rsync if needed
-4. Performs initial sync for both repositories (runs asynchronously)
-5. Creates systemd service(s) for automated syncing
-6. Creates systemd timer(s) for scheduled updates
-7. Enables and starts the timer(s)
-8. Installs and configures Nginx web server
-9. Enables and starts Nginx to serve both mirrors
-
-## Verification
+## Manual Verification
 
 After running the playbook, verify the setup:
 
@@ -181,14 +197,6 @@ The Nginx configuration enables directory browsing, so you can navigate the repo
 - The timer will automatically sync every 4 hours by default
 - In combined mode, CloudLinux syncs first, then SWNG
 - In separate mode, timers can be configured with different schedules if needed
-
-## Disk Space Requirements
-
-Approximate disk space requirements:
-
-- **CloudLinux only**: 200-500 GB
-- **SWNG only**: 200-500 GB
-- **Combined**: 500 GB - 1+ TB
 
 These are rough estimates and will vary based on:
 - CloudLinux versions included
