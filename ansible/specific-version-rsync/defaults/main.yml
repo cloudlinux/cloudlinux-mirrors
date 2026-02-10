@@ -2,9 +2,8 @@
 # Default variables for Specific SWNG Version Mirror Playbook
 
 # Mirror paths
-mirror_base_path: /storage
-#mirror_base_path: /var/www/mirrors
-cloudlinux_version: 8  # Options: 8, 9
+mirror_base_path: /var/www/mirrors
+cloudlinux_version: 9  # Options: 8, 9
 swng_mirror_path: "{{ mirror_base_path }}/swng/{{ cloudlinux_version }}"
 
 # RSync configuration
@@ -17,10 +16,8 @@ timer_schedule: "*-*-* 00,06,12,18:00:00"
 service_name: "swng-{{ cloudlinux_version }}-mirror"
 
 # SSL/Certbot configuration
-#mirror_domain: "{{ inventory_hostname }}"
-mirror_domain: test-client-repo.atm.cl-mirror.net
-#certbot_email: "admin@{{ mirror_domain }}"
-certbot_email: amikhailov@cloudlinux.com
+mirror_domain: "{{ inventory_hostname }}"
+certbot_email: "admin@{{ mirror_domain }}"
 certbot_authenticator: standalone  # Options: standalone, webroot
 certbot_webroot: "{{ mirror_base_path }}/acme"
 certbot_enabled: true
@@ -28,4 +25,3 @@ certbot_cron_enabled: true
 certbot_cron_schedule:
   minute: 0
   hour: 3
-
