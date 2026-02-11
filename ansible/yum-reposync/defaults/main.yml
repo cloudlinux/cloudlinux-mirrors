@@ -1,0 +1,36 @@
+---
+# Default variables for SWNG Mirror with yum-reposync
+
+# Mirror paths
+mirror_base_path: /var/www/mirrors
+swng_mirror_path: "{{ mirror_base_path }}/swng"
+
+# Sync/log configuration
+sync_log_file: /var/log/swng-reposync.log
+sync_interval_hours: 6
+timer_schedule: "*-*-* 00,06,12,18:00:00"
+service_name: swng-reposync
+
+# SSL/Certbot configuration
+mirror_domain: "{{ inventory_hostname }}"
+certbot_email: "admin@{{ mirror_domain }}"
+certbot_authenticator: standalone  # Options: standalone, webroot
+certbot_webroot: "{{ mirror_base_path }}/acme"
+certbot_enabled: true
+certbot_cron_enabled: true
+certbot_cron_schedule:
+  minute: 0
+  hour: 3
+
+# List of repositories to sync
+# Source: https://upstream.cloudlinux.com/swng/
+swng_repos:
+  - name: SWNG-9-x86_64
+    baseurl: https://upstream.cloudlinux.com/swng/9/
+    module_platform_id: platform:el9
+    enabled: true
+  - name: SWNG-8-x86_64
+    baseurl: https://upstream.cloudlinux.com/swng/8/
+    module_platform_id: platform:el8
+    enabled: true
+

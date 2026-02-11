@@ -1,0 +1,179 @@
+---
+- name: Verify SWNG reposync mirror setup
+  hosts: mirror_servers
+  become: yes
+  vars_files:
+    - defaults/main.yml
+
+  tasks:
+    - name: Check storage mountpoint
+      command: mountpoint -q {{ mirror_base_path }}
+      register: mountpoint_check
+      changed_when: false
+      failed_when: false
+
+    - name: Report storage mount
+      debug:
+        msg: "OK: {{ mirror_base_path }} is mounted"
+      when: mountpoint_check.rc == 0
+
+    - name: Fail if storage not mounted
+      fail:
+        msg: "ERROR: {{ mirror_base_path }} is not mounted"
+      when: mountpoint_check.rc != 0
+
+    - name: Check SWNG mirror directory exists
+      stat:
+        path: "{{ swng_mirror_path }}"
+      register: swng_dir
+
+    - name: Assert SWNG mirror directory exists
+      assert:
+        that:
+          - swng_dir.stat.exists
+          - swng_dir.stat.isdir
+        success_msg: "OK: mirror dir {{ swng_mirror_path }} exists"
+        fail_msg: "ERROR: mirror dir {{ swng_mirror_path }} missing"
+
+    - name: Check SWNG repo directories exist
+      stat:
+        path: "{{ swng_mirror_path }}/{{ item.name }}"
+      register: repo_dirs
+      loop: "{{ swng_repos }}"
+      when: item.enabled | default(false)
+
+    - name: Assert SWNG repo directories exist
+      assert:
+        that:
+          - item.stat.exists
+          - item.stat.isdir
+        success_msg: "OK: repo dir {{ item.item.name }} exists"
+        fail_msg: "ERROR: repo dir {{ item.item.name }} missing"
+      loop: "{{ repo_dirs.results | default([]) }}"
+
+    - name: Check repomd.xml exists for each repo
+      stat:
+        path: "{{ swng_mirror_path }}/{{ item.name }}/repodata/repomd.xml"
+      register: repomd_files
+      loop: "{{ swng_repos }}"
+      when: item.enabled | default(false)
+
+    - name: Assert repodata exists for each repo
+      assert:
+        that:
+          - item.stat.exists
+        success_msg: "OK: repodata present for {{ item.item.name }}"
+        fail_msg: "ERROR: repodata missing for {{ item.item.name }}"
+      loop: "{{ repomd_files.results | default([]) }}"
+
+    - name: Check swng-reposync service state
+      systemd:
+        name: "{{ service_name }}.service"
+      register: swng_service
+
+    - name: Set sync in progress flag
+      set_fact:
+        swng_sync_in_progress: "{{ swng_service.status.ActiveState == 'active' }}"
+
+    - name: Check each repo has at least one RPM
+      command: find {{ swng_mirror_path }}/{{ item.name }} -type f -name "*.rpm" -print -quit
+      register: repo_rpms
+      changed_when: false
+      failed_when: false
+      loop: "{{ swng_repos }}"
+      when: item.enabled | default(false)
+
+    - name: Report RPM presence per repo
+      debug:
+        msg: >-
+          {% if item.stdout | length > 0 %}
+          OK: repo {{ item.item.name }} contains RPMs
+          {% else %}
+          INFO: repo {{ item.item.name }} has no RPMs yet (initial sync may still be running)
+          {% endif %}
+      loop: "{{ repo_rpms.results | default([]) }}"
+
+    - name: Check swng-reposync timer
+      systemd:
+        name: "{{ service_name }}.timer"
+      register: swng_timer
+
+    - name: Assert timer active
+      assert:
+        that:
+          - swng_timer.status.ActiveState == "active"
+        success_msg: "OK: {{ service_name }}.timer is active"
+        fail_msg: "ERROR: {{ service_name }}.timer is not active"
+
+    - name: Check nginx service
+      systemd:
+        name: nginx
+      register: nginx_service
+
+    - name: Assert nginx active
+      assert:
+        that:
+          - nginx_service.status.ActiveState == "active"
+        success_msg: "OK: nginx is active"
+        fail_msg: "ERROR: nginx is not active"
+
+    - name: Check if Let's Encrypt certificate exists
+      stat:
+        path: "/etc/letsencrypt/live/{{ mirror_domain }}/fullchain.pem"
+      register: certbot_cert
+
+    - name: Check HTTP access to /swng/ (allow redirect)
+      uri:
+        url: "http://{{ mirror_domain }}/swng/"
+        method: HEAD
+        return_content: no
+        follow_redirects: none
+        status_code:
+          - 200
+          - 301
+          - 302
+
+    - name: Check HTTP access to repo paths (allow redirect)
+      uri:
+        url: "http://{{ mirror_domain }}/{{ item.name }}/"
+        method: HEAD
+        return_content: no
+        follow_redirects: none
+        status_code:
+          - 200
+          - 301
+          - 302
+      loop: "{{ swng_repos }}"
+      when: item.enabled | default(false)
+
+    - name: Check HTTPS access to /swng/ (when cert exists)
+      uri:
+        url: "https://{{ mirror_domain }}/swng/"
+        method: HEAD
+        return_content: no
+        status_code:
+          - 200
+          - 301
+          - 302
+        validate_certs: true
+      when: certbot_cert.stat.exists | default(false)
+
+    - name: Check HTTPS access to repo paths (when cert exists)
+      uri:
+        url: "https://{{ mirror_domain }}/{{ item.name }}/"
+        method: HEAD
+        return_content: no
+        status_code:
+          - 200
+          - 301
+          - 302
+        validate_certs: true
+      loop: "{{ swng_repos }}"
+      when:
+        - certbot_cert.stat.exists | default(false)
+        - item.enabled | default(false)
+
+    - name: Verification complete
+      debug:
+        msg: "OK: verification completed"
+

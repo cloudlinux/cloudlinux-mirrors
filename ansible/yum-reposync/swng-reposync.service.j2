@@ -4,9 +4,13 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/reposync -p {{ swng_mirror_path }}/ {% for repo in swng_repos %}{% if repo.enabled %}-r {{ repo.name }} {% endif %}{% endfor %}
 {% for repo in swng_repos %}
 {% if repo.enabled %}
+{% if repo.module_platform_id is defined %}
+ExecStart=/usr/bin/reposync -p {{ swng_mirror_path }}/ --repo {{ repo.name }} --setopt=module_platform_id={{ repo.module_platform_id }}
+{% else %}
+ExecStart=/usr/bin/reposync -p {{ swng_mirror_path }}/ --repo {{ repo.name }}
+{% endif %}
 ExecStartPost=/usr/bin/createrepo {{ swng_mirror_path }}/{{ repo.name }}/
 {% endif %}
 {% endfor %}
