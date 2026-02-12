@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   combined-mirror:
+    image: combined-mirror:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -25,10 +26,10 @@ services:
       - SYNC_INTERVAL_HOURS=4
     volumes:
       # Mirror data - adjust paths as needed
-      - ./mirror-data/cloudlinux:/var/www/mirrors/cloudlinux
-      - ./mirror-data/swng:/var/www/mirrors/swng
+      - ${MIRROR_DATA_ROOT:-./mirror-data}/cloudlinux:/var/www/mirrors/cloudlinux
+      - ${MIRROR_DATA_ROOT:-./mirror-data}/swng:/var/www/mirrors/swng
       # Logs
-      - ./logs:/var/log
+      - ${LOGS_ROOT:-./logs}:/var/log
     networks:
       - mirror-network
     # Resource limits (adjust as needed)
@@ -49,7 +50,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./mirror-data:/storage:ro
+      - ${MIRROR_DATA_ROOT:-./mirror-data}:/storage:ro
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - combined-mirror
