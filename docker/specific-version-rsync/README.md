@@ -8,20 +8,69 @@ This Docker setup creates a containerized SWNG repository mirror for a specific 
 - Sufficient disk space (100-200 GB per version recommended)
 - Network access to `rsync.upstream.cloudlinux.com`
 
+## Resource Requirements
+
+Approximate requirements:
+- **CPU**: 2-4 cores recommended
+- **Memory**: 2-4 GB RAM recommended
+- **Disk**: 500 GB - 1+ TB recommended
+- **Network**: Stable, high-bandwidth connection
+
+### Environment Variables
+
+- `CLOUDLINUX_VERSION`: CloudLinux version to mirror (required: `8` or `9`)
+- `RSYNC_SOURCE`: RSync source URL (auto-generated based on version)
+- `MIRROR_PATH`: Mirror destination path (auto-generated based on version)
+- `LOG_FILE`: Log file path (auto-generated based on version)
+- `INITIAL_SYNC`: Run initial sync on startup (default: `true`)
+- `SYNC_INTERVAL_HOURS`: Sync interval in hours (default: `6`)
+
+### Volume Mounts
+
+- `./mirror-data/9` - Mirror repository data for CloudLinux 9 (persistent)
+- `./mirror-data/8` - Mirror repository data for CloudLinux 8 (persistent)
+- `./logs` - Log files (persistent)
+
 ## Quick Start
 
 ### Using Docker Compose (Recommended)
+**Check that docker/compose installed**
+```bash
+docker --version
+docker compose version || docker-compose --version
+```
+**If docker/compose not installed**
+```bash
+dnf -y install dnf-plugins-core
+dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+dnf -y install docker-ce docker-ce-cli containerd.io docker-compose-plugin
+systemctl enable --now docker
+```
 
 1. **Create directories for data and logs:**
 
 ```bash
 mkdir -p mirror-data/9 logs
+#for both versions
+mkdir -p /storage/mirror-data/8 /storage/mirror-data/9 /storage/logs
+```
+
+If you want to store data on a separate disk (e.g. `/storage`), create them there and set env vars.
+
+Recommended: put them in a `.env` near with `docker-compose.yml`:
+
+```bash
+cat > .env <<'EOF'
+MIRROR_DATA_ROOT=/storage/mirror-data
+LOGS_ROOT=/storage/logs
+EOF
 ```
 
 2. **Start the container:**
 
 ```bash
-docker-compose up -d
+DOCKER_BUILDKIT=1 docker build --network=host -t swng-version-mirror .
+docker compose up -d --no-build
 ```
 
 3. **View logs:**
@@ -67,23 +116,6 @@ docker run -d \
   -e INITIAL_SYNC=true \
   swng-version-mirror
 ```
-
-## Configuration
-
-### Environment Variables
-
-- `CLOUDLINUX_VERSION`: CloudLinux version to mirror (required: `8` or `9`)
-- `RSYNC_SOURCE`: RSync source URL (auto-generated based on version)
-- `MIRROR_PATH`: Mirror destination path (auto-generated based on version)
-- `LOG_FILE`: Log file path (auto-generated based on version)
-- `INITIAL_SYNC`: Run initial sync on startup (default: `true`)
-- `SYNC_INTERVAL_HOURS`: Sync interval in hours (default: `6`)
-
-### Volume Mounts
-
-- `./mirror-data/9` - Mirror repository data for CloudLinux 9 (persistent)
-- `./mirror-data/8` - Mirror repository data for CloudLinux 8 (persistent)
-- `./logs` - Log files (persistent)
 
 ## Usage
 
