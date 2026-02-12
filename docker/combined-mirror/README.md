@@ -16,6 +16,22 @@ Approximate requirements:
 - **Disk**: 500 GB - 1+ TB recommended
 - **Network**: Stable, high-bandwidth connection
 
+### Environment Variables
+
+- `SYNC_MODE`: Sync mode - `combined` or `separate` (default: `combined`)
+- `CLOUDLINUX_RSYNC_SOURCE`: CloudLinux RSync source
+- `SWNG_RSYNC_SOURCE`: SWNG RSync source
+- `CLOUDLINUX_MIRROR_PATH`: CloudLinux mirror path
+- `SWNG_MIRROR_PATH`: SWNG mirror path
+- `INITIAL_SYNC`: Run initial sync on startup (default: `true`)
+- `SYNC_INTERVAL_HOURS`: Sync interval in hours (default: `4`)
+
+### Volume Mounts
+
+- `./mirror-data/cloudlinux` - CloudLinux mirror data (persistent)
+- `./mirror-data/swng` - SWNG mirror data (persistent)
+- `./logs` - Log files (persistent)
+
 ## Quick Start
 
 ### Using Docker Compose (Recommended)
@@ -117,22 +133,6 @@ CloudLinux and SWNG sync independently with separate schedules.
 environment:
   - SYNC_MODE=separate
 ```
-
-### Environment Variables
-
-- `SYNC_MODE`: Sync mode - `combined` or `separate` (default: `combined`)
-- `CLOUDLINUX_RSYNC_SOURCE`: CloudLinux RSync source
-- `SWNG_RSYNC_SOURCE`: SWNG RSync source
-- `CLOUDLINUX_MIRROR_PATH`: CloudLinux mirror path
-- `SWNG_MIRROR_PATH`: SWNG mirror path
-- `INITIAL_SYNC`: Run initial sync on startup (default: `true`)
-- `SYNC_INTERVAL_HOURS`: Sync interval in hours (default: `4`)
-
-### Volume Mounts
-
-- `./mirror-data/cloudlinux` - CloudLinux mirror data (persistent)
-- `./mirror-data/swng` - SWNG mirror data (persistent)
-- `./logs` - Log files (persistent)
 
 ## Usage
 

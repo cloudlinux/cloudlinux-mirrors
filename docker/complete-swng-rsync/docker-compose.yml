@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   swng-mirror:
+    image: swng-mirror:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -15,9 +16,9 @@ services:
       - SYNC_INTERVAL_HOURS=4
     volumes:
       # Mirror data - adjust path as needed
-      - ./mirror-data:/var/www/mirrors/swng
+      - ${MIRROR_DATA_ROOT:-./mirror-data}:/var/www/mirrors/swng
       # Logs
-      - ./logs:/var/log
+      - ${LOGS_ROOT:-./logs}:/var/log
     networks:
       - mirror-network
     # Resource limits (adjust as needed)
@@ -38,7 +39,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./mirror-data:/storage/swng:ro
+      - ${MIRROR_DATA_ROOT:-./mirror-data}:/storage/swng:ro
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - swng-mirror

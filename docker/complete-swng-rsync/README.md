@@ -8,20 +8,65 @@ This Docker setup creates a containerized SWNG repository mirror that automatica
 - Sufficient disk space (several hundred GB recommended)
 - Network access to `rsync.upstream.cloudlinux.com`
 
+## Resource Requirements
+
+Approximate requirements:
+- **CPU**: 2-4 cores recommended
+- **Memory**: 2-4 GB RAM recommended
+- **Disk**: 500 GB - 1+ TB recommended
+- **Network**: Stable, high-bandwidth connection
+
+### Environment Variables
+
+Edit `docker-compose.yml` or pass as environment variables:
+
+- `RSYNC_SOURCE`: RSync source URL (default: `rsync://rsync.upstream.cloudlinux.com/SWNG/`)
+- `MIRROR_PATH`: Mirror destination path (default: `/var/www/mirrors/swng`)
+- `LOG_FILE`: Log file path (default: `/var/log/swng-mirror.log`)
+- `INITIAL_SYNC`: Run initial sync on startup (default: `true`)
+- `SYNC_INTERVAL_HOURS`: Sync interval in hours (default: `4`)
+
+### Volume Mounts
+
+- `./mirror-data` - Mirror repository data (persistent)
+- `./logs` - Log files (persistent)
+
 ## Quick Start
 
 ### Using Docker Compose (Recommended)
-
+**Check that docker/compose installed**
+```bash
+docker --version
+docker compose version || docker-compose --version
+```
+**If docker/compose not installed**
+```bash
+dnf -y install dnf-plugins-core
+dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+dnf -y install docker-ce docker-ce-cli containerd.io docker-compose-plugin
+systemctl enable --now docker
+```
 1. **Create directories for data and logs:**
 
 ```bash
 mkdir -p mirror-data logs
 ```
+If you want to store data on a separate disk (e.g. `/storage`), create them there and set env vars.
 
+Recommended: put them in a `.env` near with `docker-compose.yml`:
+
+```bash
+mkdir -p /storage/mirror-data/cloudlinux /storage/mirror-data/swng /storage/logs
+cat > .env <<'EOF'
+MIRROR_DATA_ROOT=/storage/mirror-data-swng
+LOGS_ROOT=/storage/logs-swng
+EOF
+```
 2. **Start the container:**
 
 ```bash
-docker-compose up -d
+DOCKER_BUILDKIT=1 docker build --network=host -t swng-mirror .
+docker compose up -d --no-build
 ```
 
 3. **View logs:**
@@ -50,27 +95,6 @@ docker run -d \
   swng-mirror
 ```
 
-## Configuration
-
-### Environment Variables
-
-Edit `docker-compose.yml` or pass as environment variables:
-
-- `RSYNC_SOURCE`: RSync source URL (default: `rsync://rsync.upstream.cloudlinux.com/SWNG/`)
-- `MIRROR_PATH`: Mirror destination path (default: `/var/www/mirrors/swng`)
-- `LOG_FILE`: Log file path (default: `/var/log/swng-mirror.log`)
-- `INITIAL_SYNC`: Run initial sync on startup (default: `true`)
-- `SYNC_INTERVAL_HOURS`: Sync interval in hours (default: `4`)
-
-### Sync Schedule
-
-The sync runs every 4 hours by default. To change the schedule, edit the cron job in the Dockerfile or modify `sync-script.sh`.
-
-### Volume Mounts
-
-- `./mirror-data` - Mirror repository data (persistent)
-- `./logs` - Log files (persistent)
-
 ## Usage
 
 ### View Sync Status
@@ -81,6 +105,8 @@ docker-compose logs -f swng-mirror
 
 # View sync log
 tail -f logs/swng-mirror.log
+or
+docker compose exec swng-mirror tail -n 20 /var/log/swng-mirror.log
 
 # Check mirror data
 ls -lh mirror-data/
