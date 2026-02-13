@@ -3,14 +3,16 @@
 
 [SWNG-9-x86_64]
 name=CloudLinux 9 SWNG x86_64
-baseurl=https://upstream.cloudlinux.com/swng/9/x86_64/
+baseurl=https://upstream.cloudlinux.com/swng/9/
 enabled=1
-gpgcheck=1
+skip_if_unavailable=1
+gpgcheck=0
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
 
 [SWNG-8-x86_64]
 name=CloudLinux 8 SWNG x86_64
-baseurl=https://upstream.cloudlinux.com/swng/8/x86_64/
+baseurl=https://upstream.cloudlinux.com/swng/8/
 enabled=1
-gpgcheck=1
+skip_if_unavailable=1
+gpgcheck=0
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux

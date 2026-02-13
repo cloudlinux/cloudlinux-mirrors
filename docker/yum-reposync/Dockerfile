@@ -1,4 +1,4 @@
-FROM cloudlinux:8
+FROM almalinux:8
 
 # Install required packages
 RUN yum install -y yum-utils createrepo cronie && \
@@ -36,4 +36,4 @@ VOLUME ["/var/www/mirrors/swng"]
 VOLUME ["/var/log"]
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["crond", "-f", "-d", "8"]
+CMD ["crond", "-n", "-s"]
