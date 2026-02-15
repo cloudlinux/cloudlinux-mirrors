@@ -1621,34 +1621,6 @@ Create `/etc/httpd/conf.d/cloudlinux-mirror.conf`:
    - Consider using SSD for frequently accessed repositories
    - Monitor I/O performance
 
-## Troubleshooting
-
-### Connection Issues
-
-```bash
-# Test RSync connectivity
-rsync rsync://rsync.upstream.cloudlinux.com/
-
-# Test HTTP connectivity
-curl -I https://upstream.cloudlinux.com/
-
-# Check DNS resolution
-nslookup upstream.cloudlinux.com
-```
-
-### Sync Failures
-
-```bash
-# Check RSync logs
-tail -f /var/log/cloudlinux-mirror.log
-
-# Test with verbose output
-rsync -avv --delete rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ /tmp/test-sync/
-
-# Check disk space
-df -h
-```
-
 ### Partial Syncs
 
 If a sync is interrupted, RSync will resume from where it left off on the next run. The `--partial` option can help with large files:

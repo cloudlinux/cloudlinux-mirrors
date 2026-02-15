@@ -1,4 +1,4 @@
-ы# Knowledgebase: Mirror Migration for New CloudLinux Versions
+# Knowledgebase: Mirror Migration for New CloudLinux Versions
 
 This article is for customers and explains why the old mirror system will not support newer CloudLinux OS/package versions, and how to migrate to the new mirror configuration.
 
@@ -74,3 +74,43 @@ Use this only if you need a fully autonomous install/conversion environment:
 - Sync method and frequency
 - Whether the mirror is **complete** or **partial**
 - If partial, list the versions mirrored (`swng_options`)
+
+## Troubleshooting
+
+### Common Issues and Fixes
+
+- **Firewall blocks RSync/HTTPS**: open outbound TCP `873` (rsync) and `443` (HTTPS) on the mirror host.
+- **DNS fails to resolve**: verify `/etc/resolv.conf`, corporate DNS rules, and run `nslookup upstream.cloudlinux.com`.
+- **RSync not installed**: install `rsync` with your package manager, then retry the sync.
+- **HTTPS returns 403/404**: confirm the exact base paths and trailing slashes:
+  - `https://upstream.cloudlinux.com/swng/`
+  - `https://upstream.cloudlinux.com/cloudlinux/`
+- **Insufficient disk space**: check `df -h` and sync only the required sub-repositories.
+- **Permissions on target dir**: ensure the sync user can write to the destination (e.g., `/storage/swng`).
+- **Partial mirror not visible in mirrorlist**: confirm the mirrored versions match the scope you provided to support.
+
+### Connection Issues
+
+```bash
+# Test RSync connectivity
+rsync rsync://rsync.upstream.cloudlinux.com/
+
+# Test HTTP connectivity
+curl -I https://upstream.cloudlinux.com/
+
+# Check DNS resolution
+nslookup upstream.cloudlinux.com
+```
+
+### Sync Failures
+
+```bash
+# Check RSync logs
+tail -f /var/log/cloudlinux-mirror.log
+
+# Test with verbose output
+rsync -avv --delete rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ /tmp/test-sync/
+
+# Check disk space
+df -h
+```
