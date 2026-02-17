@@ -25,12 +25,16 @@ Approximate requirements:
 - `SWNG_MIRROR_PATH`: SWNG mirror path
 - `INITIAL_SYNC`: Run initial sync on startup (default: `true`)
 - `SYNC_INTERVAL_HOURS`: Sync interval in hours (default: `4`)
+- `CERTBOT_EMAIL`: Email for Let's Encrypt registration (default: `admin@example.com`)
+- `CERTBOT_DOMAIN`: Public domain for the mirror (default: `mirror.example.com`)
 
 ### Volume Mounts
 
 - `./mirror-data/cloudlinux` - CloudLinux mirror data (persistent)
 - `./mirror-data/swng` - SWNG mirror data (persistent)
 - `./logs` - Log files (persistent)
+- `certbot-etc` - Let's Encrypt certificates (persistent volume)
+- `certbot-www` - ACME webroot (persistent volume)
 
 ## Quick Start
 
@@ -63,8 +67,11 @@ mkdir -p /storage/mirror-data/cloudlinux /storage/mirror-data/swng /storage/logs
 cat > .env <<'EOF'
 MIRROR_DATA_ROOT=/storage/mirror-data
 LOGS_ROOT=/storage/logs
+CERTBOT_EMAIL=admin@example.com
+CERTBOT_DOMAIN=mirror.example.com
 EOF
 ```
+Make sure `CERTBOT_DOMAIN` points to this server (DNS A/AAAA record) and ports 80/443 are open.
 2. **Start the containers:**
 
 ```bash
@@ -77,6 +84,8 @@ docker compose up -d --no-build
 ```bash
 docker-compose logs -f combined-mirror
 ```
+On first run, Nginx starts in HTTP-only mode for ACME. Once the certificate is issued,
+it will automatically reload and enable HTTPS.
 
 ### Using Docker
 
@@ -166,7 +175,7 @@ docker-compose exec combined-mirror /usr/local/bin/sync-swng.sh
 
 ### Access via Web Server
 
-The included Nginx container serves the mirrors on port 80:
+The included Nginx container serves the mirrors on HTTP/HTTPS:
 
 ```bash
 # Access CloudLinux repositories
@@ -174,6 +183,12 @@ curl http://localhost/cloudlinux/
 
 # Access SWNG repositories
 curl http://localhost/swng/
+```
+HTTPS (after cert issuance):
+
+```bash
+curl https://<your-domain>/cloudlinux/
+curl https://<your-domain>/swng/
 ```
 
 ### Stop Containers
@@ -200,6 +215,25 @@ docker-compose logs combined-mirror
 
 # Check container status
 docker-compose ps
+```
+
+### 403 Forbidden in Browser
+
+If directories are created with restrictive permissions (e.g. `700`), nginx cannot read them.
+Fix by granting read/execute to others:
+
+```bash
+chmod -R o+rx /storage/mirror-data/
+```
+
+### Let's Encrypt Issues
+
+```bash
+# Check certbot logs
+docker-compose logs certbot
+
+# Ensure the ACME challenge is reachable
+curl -I http://<your-domain>/.well-known/acme-challenge/test
 ```
 
 ### Sync Failing
