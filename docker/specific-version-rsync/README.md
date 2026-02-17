@@ -24,12 +24,16 @@ Approximate requirements:
 - `LOG_FILE`: Log file path (auto-generated based on version)
 - `INITIAL_SYNC`: Run initial sync on startup (default: `true`)
 - `SYNC_INTERVAL_HOURS`: Sync interval in hours (default: `6`)
+- `CERTBOT_EMAIL`: Email for Let's Encrypt registration (default: `admin@example.com`)
+- `CERTBOT_DOMAIN`: Public domain for the mirror (default: `mirror.example.com`)
 
 ### Volume Mounts
 
 - `./mirror-data/9` - Mirror repository data for CloudLinux 9 (persistent)
 - `./mirror-data/8` - Mirror repository data for CloudLinux 8 (persistent)
 - `./logs` - Log files (persistent)
+- `certbot-etc` - Let's Encrypt certificates (persistent volume)
+- `certbot-www` - ACME webroot (persistent volume)
 
 ## Quick Start
 
@@ -63,8 +67,11 @@ Recommended: put them in a `.env` near with `docker-compose.yml`:
 cat > .env <<'EOF'
 MIRROR_DATA_ROOT=/storage/mirror-data
 LOGS_ROOT=/storage/logs
+CERTBOT_EMAIL=admin@example.com
+CERTBOT_DOMAIN=mirror.example.com
 EOF
 ```
+Make sure `CERTBOT_DOMAIN` points to this server (DNS A/AAAA record) and ports 80/443 are open.
 
 2. **Start the container:**
 
@@ -78,6 +85,8 @@ docker compose up -d --no-build
 ```bash
 docker-compose logs -f swng-9-mirror
 ```
+On first run, Nginx starts in HTTP-only mode for ACME. Once the certificate is issued,
+it will automatically reload and enable HTTPS.
 
 ### Mirroring CloudLinux 8
 
@@ -165,6 +174,7 @@ The Docker Compose setup includes an Nginx service that automatically serves the
 - **CloudLinux 9**: `http://localhost/swng/9/`
 - **CloudLinux 8**: `http://localhost/swng/8/` (if enabled)
 - **Network access**: `http://<server-ip>/swng/<version>/`
+ - **HTTPS**: `https://<your-domain>/swng/<version>/`
 
 The Nginx configuration enables directory browsing, so you can navigate the repository structure through a web browser.
 
@@ -173,7 +183,7 @@ The Nginx configuration enables directory browsing, so you can navigate the repo
 The `docker-compose.yml` includes a pre-configured Nginx service that:
 - Serves the mirror data from the `mirror-data` directory
 - Enables directory browsing for each version
-- Runs on port 80
+- Runs on ports 80/443
 - Automatically starts with the mirror containers
 
 ## Notes
@@ -183,4 +193,4 @@ The `docker-compose.yml` includes a pre-configured Nginx service that:
 - The container runs cron internally for scheduled syncs
 - Mirror data persists in the `mirror-data` directory
 - Logs are stored in the `logs` directory
-- Nginx automatically serves the mirrors via HTTP
+- Nginx automatically serves the mirrors via HTTP/HTTPS
