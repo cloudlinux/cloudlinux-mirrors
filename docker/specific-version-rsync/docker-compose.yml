@@ -1,21 +1,21 @@
 services:
-  swng-9-mirror:
+  swng-10-mirror:
     image: swng-version-mirror:latest
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: swng-9-mirror
+    container_name: swng-10-mirror
     restart: unless-stopped
     environment:
-      - CLOUDLINUX_VERSION=9
-      - RSYNC_SOURCE=rsync://rsync.upstream.cloudlinux.com/SWNG/9/
-      - MIRROR_PATH=/var/www/mirrors/swng/9
-      - LOG_FILE=/var/log/swng-9-mirror.log
+      - CLOUDLINUX_VERSION=10
+      - RSYNC_SOURCE=rsync://rsync.upstream.cloudlinux.com/SWNG/10/
+      - MIRROR_PATH=/var/www/mirrors/swng/10
+      - LOG_FILE=/var/log/swng-10-mirror.log
       - INITIAL_SYNC=true
       - SYNC_INTERVAL_HOURS=6
     volumes:
       # Mirror data - adjust path as needed
-      - ${MIRROR_DATA_ROOT:-./mirror-data}/9:/var/www/mirrors/swng/9
+      - ${MIRROR_DATA_ROOT:-./mirror-data}/10:/var/www/mirrors/swng/10
       # Logs
       - ${LOGS_ROOT:-./logs}:/var/log
     networks:
@@ -69,7 +69,7 @@ services:
         fi
         nginx -g 'daemon off;'
     depends_on:
-      - swng-9-mirror
+      - swng-10-mirror
     networks:
       - mirror-network
 
