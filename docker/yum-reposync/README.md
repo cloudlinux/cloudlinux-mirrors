@@ -24,6 +24,8 @@ Approximate requirements:
 - `REPOS`: Space-separated list of repositories to sync (default: `SWNG-9-x86_64 SWNG-8-x86_64`)
 - `INITIAL_SYNC`: Run initial sync on startup (default: `true`)
 - `SYNC_INTERVAL_HOURS`: Sync interval in hours (default: `6`)
+- `CERTBOT_EMAIL`: Email for Let's Encrypt registration (default: `admin@example.com`)
+- `CERTBOT_DOMAIN`: Public domain for the mirror (default: `mirror.example.com`)
 
 ## Quick Start
 
@@ -52,11 +54,16 @@ If you want to store data on a separate disk (e.g. `/storage`), create them ther
 Recommended: put them in a `.env` near with `docker-compose.yml`:
 
 ```bash
+mkdir -p /storage/mirror-data /storage/logs
+
 cat > .env <<'EOF'
 MIRROR_DATA_ROOT=/storage/mirror-data
 LOGS_ROOT=/storage/logs
+CERTBOT_EMAIL=admin@example.com
+CERTBOT_DOMAIN=mirror.example.com
 EOF
 ```
+Make sure `CERTBOT_DOMAIN` points to this server (DNS A/AAAA record) and ports 80/443 are open.
 2. **Start the container:**
 
 ```bash
@@ -69,6 +76,8 @@ docker compose up -d --no-build
 ```bash
 docker-compose logs -f swng-reposync
 ```
+On first run, Nginx starts in HTTP-only mode for ACME. Once the certificate is issued,
+it will automatically reload and enable HTTPS.
 
 ### Using Docker
 
@@ -158,6 +167,7 @@ The Docker Compose setup includes an Nginx service that automatically serves the
 
 - **Local access**: `http://localhost/swng/`
 - **Network access**: `http://<server-ip>/swng/`
+- **HTTPS**: `https://<your-domain>/swng/`
 
 The Nginx configuration enables directory browsing, so you can navigate the repository structure through a web browser.
 
@@ -166,7 +176,7 @@ The Nginx configuration enables directory browsing, so you can navigate the repo
 The `docker-compose.yml` includes a pre-configured Nginx service that:
 - Serves the mirror data from the `mirror-data` directory
 - Enables directory browsing
-- Runs on port 80
+- Runs on ports 80/443
 - Automatically starts with the mirror container
 
 ## Notes
@@ -177,4 +187,4 @@ The `docker-compose.yml` includes a pre-configured Nginx service that:
 - Mirror data persists in the `mirror-data` directory
 - Logs are stored in the `logs` directory
 - Only repositories listed in `REPOS` environment variable will be synced
-- Nginx automatically serves the mirrors via HTTP
+- Nginx automatically serves the mirrors via HTTP/HTTPS
