@@ -1,5 +1,6 @@
 # Specific SWNG Version Mirror with RSync - Ansible Playbook
 
+### This is recomended type of instalation
 This Ansible playbook sets up a local mirror of a specific CloudLinux version's SWNG repositories using RSync with automated updates via systemd timers.
 
 ## Prerequisites
@@ -16,7 +17,7 @@ This Ansible playbook sets up a local mirror of a specific CloudLinux version's 
 
 Default variables are defined in `defaults/main.yml`. You can customize the playbook by overriding variables:
 
-- `cloudlinux_version`: CloudLinux version to mirror (default: `9`, options: `8` or `9`)
+- `cloudlinux_version`: CloudLinux version to mirror (default: `10`)
 - `mirror_base_path`: Base path for mirrors (default: `/var/www/mirrors`)
 - `swng_mirror_path`: SWNG mirror directory (auto-generated based on version)
 - `rsync_source`: RSync source URL (auto-generated based on version)
@@ -26,7 +27,7 @@ Default variables are defined in `defaults/main.yml`. You can customize the play
 
 ## What the Playbook Does
 
-1. Validates the CloudLinux version (must be 8 or 9)
+1. Validates the CloudLinux version (must be 10)
 2. Checks available disk space
 3. Creates mirror directory structure for the specific version
 4. Installs rsync if needed
@@ -39,29 +40,15 @@ Default variables are defined in `defaults/main.yml`. You can customize the play
 
 ## Usage
 
-### Mirror CloudLinux 9 SWNG (Default)
+### Mirror CloudLinux 10 SWNG (Default)
 
 ```bash
 ansible-playbook -i inventory.ini playbook.yml
 ```
 
-### Mirror CloudLinux 8 SWNG
+### Version Support
 
-```bash
-ansible-playbook -i inventory.ini playbook.yml -e "cloudlinux_version=8"
-```
-
-### Mirroring Multiple Versions
-
-To mirror both CloudLinux 8 and 9, run the playbook twice:
-
-```bash
-# Mirror CloudLinux 8
-ansible-playbook -i inventory.ini playbook.yml -e "cloudlinux_version=8"
-
-# Mirror CloudLinux 9
-ansible-playbook -i inventory.ini playbook.yml -e "cloudlinux_version=9"
-```
+Only CloudLinux 10 is supported in this playbook at the moment.
 ## How to install
 Edit `inventory.ini` to specify your mirror server(s):
 
@@ -80,7 +67,7 @@ Edit the `defaults/main.yml` if necessary
 
 # Mirror paths
 mirror_base_path: /var/www/mirrors
-cloudlinux_version: 9  # Options: 8, 9
+cloudlinux_version: 10
 swng_mirror_path: "{{ mirror_base_path }}/swng/{{ cloudlinux_version }}"
 
 # RSync configuration
@@ -116,31 +103,31 @@ ansible-playbook -i inventory.ini verify.yml
 After running the playbook, verify the setup:
 
 ```bash
-# Check timer status (replace 9 with your version)
-systemctl status swng-9-mirror.timer
+# Check timer status
+systemctl status swng-10-mirror.timer
 
 # List active timers
-systemctl list-timers swng-9-mirror.timer
+systemctl list-timers swng-10-mirror.timer
 
 # Check sync log
-tail -f /var/log/swng-9-mirror.log
+tail -f /var/log/swng-10-mirror.log
 
 # Verify mirror directory
-ls -lh /var/www/mirrors/swng/9/
+ls -lh /var/www/mirrors/swng/10/
 
 # Check Nginx status
 systemctl status nginx
 
 # Test web access
-curl http://localhost/swng/9/
+curl http://localhost/swng/10/
 ```
 
 ## Accessing the Mirror via Web
 
 The playbook configures Nginx to serve the mirror on port 80. You can access it via:
 
-- **Local access**: `http://localhost/swng/9/` (or `/swng/8/` for CloudLinux 8)
-- **Network access**: `http://<server-ip>/swng/9/`
+- **Local access**: `http://localhost/swng/10/`
+- **Network access**: `http://<server-ip>/swng/10/`
 
 The Nginx configuration enables directory browsing, so you can navigate the repository structure through a web browser.
 
@@ -150,4 +137,3 @@ The Nginx configuration enables directory browsing, so you can navigate the repo
 - Monitor the log file to track sync progress
 - Ensure sufficient disk space before running
 - The timer will automatically sync every 6 hours by default
-- Each version creates its own service and timer (e.g., `swng-8-mirror`, `swng-9-mirror`)

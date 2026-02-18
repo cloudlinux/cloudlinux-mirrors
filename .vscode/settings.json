@@ -1,0 +1,6 @@
+{
+  "yaml.validate": false,
+  "yaml.schemaStore.enable": false,
+  "ansible.validation.enabled": false,
+  "ansible.lint.enabled": false
+}

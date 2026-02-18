@@ -9,8 +9,8 @@
     - name: Validate CloudLinux version
       assert:
         that:
-          - cloudlinux_version in [8, 9, '8', '9']
-        fail_msg: "cloudlinux_version must be 8 or 9"
+          - cloudlinux_version in [10, '10']
+        fail_msg: "cloudlinux_version must be 10"
         success_msg: "CloudLinux version {{ cloudlinux_version }} is valid"
 
     - name: Check available disk space
