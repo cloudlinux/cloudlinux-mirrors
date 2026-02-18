@@ -4,7 +4,7 @@ This directory contains Ansible playbooks for automating the setup of CloudLinux
 
 ## Available Playbooks
 
-### 1. Complete SWNG Mirror with RSync (Recomended)
+### 1. Complete SWNG Mirror with RSync
 **Directory:** `complete-swng-rsync/`
 
 Sets up a complete local mirror of all SWNG repositories using RSync with automated updates via systemd timers.
@@ -17,7 +17,7 @@ Sets up a complete local mirror of all SWNG repositories using RSync with automa
 - Systemd timer for automated updates
 - Configurable sync intervals
 
-### 2. Specific SWNG Version Mirror with RSync
+### 2. Specific SWNG Version Mirror with RSync (Recomended)
 **Directory:** `specific-version-rsync/`
 
 Sets up a local mirror of a specific CloudLinux version's SWNG repositories (e.g., only CloudLinux 8 or CloudLinux 9).
@@ -28,7 +28,7 @@ Sets up a local mirror of a specific CloudLinux version's SWNG repositories (e.g
 - Version-specific mirroring
 - RSync-based synchronization
 - Systemd timer for automated updates
-- Supports CloudLinux 8 and 9
+- Supports CloudLinux 10
 
 ### 3. SWNG Mirror with yum-reposync
 **Directory:** `yum-reposync/`
