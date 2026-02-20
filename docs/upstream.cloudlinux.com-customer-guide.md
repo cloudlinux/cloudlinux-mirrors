@@ -238,16 +238,3 @@ rsync -avv --delete rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ /tmp/test-
 # Check disk space
 df -h
 ```
-
-## When to contact Support (what to include)
-
-If you still have issues after the checks above, contact CloudLinux Support and include:
-
-- Your mirror URL(s): `https://.../swng/` (and optionally `/cloudlinux/`)
-- Whether the mirror is public or private (if private: egress IPs/CIDRs)
-- Whether your mirror is full or partial (and which versions/paths)
-- Output of:
-  - `rsync rsync://rsync.upstream.cloudlinux.com/`
-  - `curl -fsSI https://upstream.cloudlinux.com/ | head`
-  - `curl -fsSI https://<your-mirror>/swng/ | head`
-  - `curl -fsSI https://<your-mirror>/swng/<version>/x86_64/repodata/repomd.xml | head` (adjust path)
