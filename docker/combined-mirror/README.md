@@ -42,7 +42,7 @@ Approximate requirements:
 **Check that docker/compose installed**
 ```bash
 docker --version
-docker compose version || docker-compose --version
+docker compose version
 ```
 **If docker/compose not installed**
 ```bash
@@ -82,7 +82,7 @@ docker compose up -d --no-build
 3. **View logs:**
 
 ```bash
-docker-compose logs -f combined-mirror
+docker compose logs -f combined-mirror
 ```
 On first run, Nginx starts in HTTP-only mode for ACME. Once the certificate is issued,
 it will automatically reload and enable HTTPS.
@@ -149,7 +149,7 @@ environment:
 
 ```bash
 # View container logs
-docker-compose logs -f combined-mirror
+docker compose logs -f combined-mirror
 
 # View sync logs
 tail -f logs/combined-mirror.log
@@ -166,11 +166,11 @@ ls -lh mirror-data/swng/
 
 ```bash
 # Combined mode
-docker-compose exec combined-mirror /usr/local/bin/sync-combined.sh
+docker compose exec combined-mirror /usr/local/bin/sync-combined.sh
 
 # Separate mode
-docker-compose exec combined-mirror /usr/local/bin/sync-cloudlinux.sh
-docker-compose exec combined-mirror /usr/local/bin/sync-swng.sh
+docker compose exec combined-mirror /usr/local/bin/sync-cloudlinux.sh
+docker compose exec combined-mirror /usr/local/bin/sync-swng.sh
 ```
 
 ### Access via Web Server
@@ -194,7 +194,7 @@ curl https://<your-domain>/swng/
 ### Stop Containers
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ## Web Server Configuration
@@ -211,10 +211,10 @@ Edit `nginx.conf` to customize the web server configuration.
 
 ```bash
 # Check container logs
-docker-compose logs combined-mirror
+docker compose logs combined-mirror
 
 # Check container status
-docker-compose ps
+docker compose ps
 ```
 
 ### 403 Forbidden in Browser
@@ -230,7 +230,7 @@ chmod -R o+rx /storage/mirror-data/
 
 ```bash
 # Check certbot logs
-docker-compose logs certbot
+docker compose logs certbot
 
 # Ensure the ACME challenge is reachable
 curl -I http://<your-domain>/.well-known/acme-challenge/test
@@ -240,14 +240,14 @@ curl -I http://<your-domain>/.well-known/acme-challenge/test
 
 ```bash
 # Test RSync connectivity
-docker-compose exec combined-mirror rsync rsync://rsync.upstream.cloudlinux.com/SWNG/
-docker-compose exec combined-mirror rsync rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/
+docker compose exec combined-mirror rsync rsync://rsync.upstream.cloudlinux.com/SWNG/
+docker compose exec combined-mirror rsync rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/
 
 # Check disk space
-docker-compose exec combined-mirror df -h
+docker compose exec combined-mirror df -h
 
 # View detailed sync log
-docker-compose exec combined-mirror tail -f /var/log/combined-mirror.log
+docker compose exec combined-mirror tail -f /var/log/combined-mirror.log
 ```
 
 ### Disk Space Issues

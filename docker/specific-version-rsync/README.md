@@ -42,7 +42,7 @@ Approximate requirements:
 **Check that docker/compose installed**
 ```bash
 docker --version
-docker compose version || docker-compose --version
+docker compose version
 ```
 **If docker/compose not installed**
 ```bash
@@ -84,7 +84,7 @@ docker compose up -d --no-build
 3. **View logs:**
 
 ```bash
-docker-compose logs -f swng-10-mirror
+docker compose logs -f swng-10-mirror
 ```
 On first run, Nginx starts in HTTP-only mode for ACME. Once the certificate is issued,
 it will automatically reload and enable HTTPS.
@@ -116,7 +116,7 @@ docker run -d \
 
 ```bash
 # View container logs
-docker-compose logs -f swng-10-mirror
+docker compose logs -f swng-10-mirror
 
 # View sync log
 tail -f logs/swng-10-mirror.log
@@ -129,7 +129,7 @@ ls -lh mirror-data/10/
 
 ```bash
 # Execute sync script manually
-docker-compose exec swng-10-mirror /usr/local/bin/sync-script.sh
+docker compose exec swng-10-mirror /usr/local/bin/sync-script.sh
 ```
 
 ## Accessing the Mirror via Web

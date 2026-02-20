@@ -41,7 +41,7 @@ Edit `docker-compose.yml` or pass as environment variables:
 **Check that docker/compose installed**
 ```bash
 docker --version
-docker compose version || docker-compose --version
+docker compose version
 ```
 **If docker/compose not installed**
 ```bash
@@ -80,7 +80,7 @@ docker compose up -d --no-build
 4. **View logs:**
 
 ```bash
-docker-compose logs -f
+docker compose logs -f
 ```
 
 On first run, Nginx starts in HTTP-only mode for ACME. Once the certificate is issued,
@@ -112,7 +112,7 @@ docker run -d \
 
 ```bash
 # View container logs
-docker-compose logs -f swng-mirror
+docker compose logs -f swng-mirror
 
 # View sync log
 tail -f logs/swng-mirror.log
@@ -127,20 +127,20 @@ ls -lh mirror-data/
 
 ```bash
 # Execute sync script manually
-docker-compose exec swng-mirror /usr/local/bin/sync-script.sh
+docker compose exec swng-mirror /usr/local/bin/sync-script.sh
 ```
 
 ### Stop Container
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ### Update Sync Schedule
 
 1. Edit the Dockerfile to change the cron schedule
-2. Rebuild the image: `docker-compose build`
-3. Restart: `docker-compose up -d`
+2. Rebuild the image: `docker compose build`
+3. Restart: `docker compose up -d`
 
 ## Accessing the Mirror via Web
 
@@ -166,17 +166,17 @@ The `docker-compose.yml` includes a pre-configured Nginx service that:
 
 ```bash
 # Check container logs
-docker-compose logs swng-mirror
+docker compose logs swng-mirror
 
 # Check container status
-docker-compose ps
+docker compose ps
 ```
 
 ### Let's Encrypt Issues
 
 ```bash
 # Check certbot logs
-docker-compose logs certbot
+docker compose logs certbot
 
 # Ensure the ACME challenge is reachable
 curl -I http://<your-domain>/.well-known/acme-challenge/test
@@ -186,13 +186,13 @@ curl -I http://<your-domain>/.well-known/acme-challenge/test
 
 ```bash
 # Test RSync connectivity
-docker-compose exec swng-mirror rsync rsync://rsync.upstream.cloudlinux.com/
+docker compose exec swng-mirror rsync rsync://rsync.upstream.cloudlinux.com/
 
 # Check disk space
-docker-compose exec swng-mirror df -h
+docker compose exec swng-mirror df -h
 
 # View detailed sync log
-docker-compose exec swng-mirror tail -f /var/log/swng-mirror.log
+docker compose exec swng-mirror tail -f /var/log/swng-mirror.log
 ```
 
 ### Disk Space Issues

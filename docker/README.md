@@ -83,13 +83,13 @@ mkdir -p mirror-data logs
 4. **Start with Docker Compose:**
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 5. **View logs:**
 
 ```bash
-docker-compose logs -f
+docker compose logs -f
 ```
 
 ## Setup Comparison
@@ -110,7 +110,7 @@ docker-compose logs -f
 
 ```bash
 # Container logs
-docker-compose logs -f
+docker compose logs -f
 
 # Sync log files
 tail -f logs/*.log
@@ -120,26 +120,26 @@ tail -f logs/*.log
 
 ```bash
 # Execute sync script
-docker-compose exec <service-name> /usr/local/bin/sync-script.sh
+docker compose exec <service-name> /usr/local/bin/sync-script.sh
 ```
 
 ### Stop Containers
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ### Restart Containers
 
 ```bash
-docker-compose restart
+docker compose restart
 ```
 
 ### Update Configuration
 
 1. Edit configuration files
-2. Rebuild: `docker-compose build`
-3. Restart: `docker-compose up -d`
+2. Rebuild: `docker compose build`
+3. Restart: `docker compose up -d`
 
 ## Volume Management
 
@@ -198,10 +198,10 @@ Ensure the following are accessible:
 
 ```bash
 # Check logs
-docker-compose logs
+docker compose logs
 
 # Check container status
-docker-compose ps
+docker compose ps
 
 # Check system resources
 docker stats
@@ -211,13 +211,13 @@ docker stats
 
 ```bash
 # Test connectivity
-docker-compose exec <service> rsync rsync://rsync.upstream.cloudlinux.com/
+docker compose exec <service> rsync rsync://rsync.upstream.cloudlinux.com/
 
 # Check disk space
-docker-compose exec <service> df -h
+docker compose exec <service> df -h
 
 # View detailed logs
-docker-compose exec <service> tail -f /var/log/*.log
+docker compose exec <service> tail -f /var/log/*.log
 ```
 
 ### Disk Space Issues

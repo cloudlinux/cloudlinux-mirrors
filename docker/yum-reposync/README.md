@@ -33,7 +33,7 @@ Approximate requirements:
 **Check that docker/compose installed**
 ```bash
 docker --version
-docker compose version || docker-compose --version
+docker compose version
 ```
 **If docker/compose not installed**
 ```bash
@@ -74,7 +74,7 @@ docker compose up -d --no-build
 3. **View logs:**
 
 ```bash
-docker-compose logs -f swng-reposync
+docker compose logs -f swng-reposync
 ```
 On first run, Nginx starts in HTTP-only mode for ACME. Once the certificate is issued,
 it will automatically reload and enable HTTPS.
@@ -133,7 +133,7 @@ environment:
 
 ```bash
 # View container logs
-docker-compose logs -f swng-reposync
+docker compose logs -f swng-reposync
 
 # View sync log
 tail -f logs/swng-reposync.log
@@ -146,14 +146,14 @@ ls -lh mirror-data/
 
 ```bash
 # Execute sync script manually
-docker-compose exec swng-reposync /usr/local/bin/sync-script.sh
+docker compose exec swng-reposync /usr/local/bin/sync-script.sh
 ```
 
 ### Update Repository Configuration
 
 1. Edit `swng-upstream.repo` to add/modify repositories
-2. Rebuild the image: `docker-compose build`
-3. Restart: `docker-compose up -d`
+2. Rebuild the image: `docker compose build`
+3. Restart: `docker compose up -d`
 
 ## Differences from RSync Method
 

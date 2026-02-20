@@ -29,7 +29,7 @@
 **SWNG** (Spacewalk Next Generation) is the **main operational repository** containing:
 - All packages required for the operational system
 - Regular security and feature updates
-- Current and actively maintained CloudLinux versions (8, 9, 10, etc.)
+- Current and actively maintained CloudLinux version 10 (8/9 support coming soon)
 - The primary repository used by CloudLinux systems for day-to-day operations
 
 **repo.cloudlinux.com** (accessed via `upstream.cloudlinux.com/cloudlinux/`) contains:
@@ -68,7 +68,7 @@ The CloudLinux package delivery system operates in two phases:
 - Support for private mirrors for specific networks while maintaining standard configuration
 - **Selective version mirroring**: The new SWNG mirror system allows mirroring only the specific CloudLinux versions you need, unlike the old system which required mirroring all versions
 
-### Mirror System Changes (Old vs New)
+## Mirror System Changes (Old vs New)
 
 The new mirroring system is gradually replacing the old one. Key changes and behaviors:
 
@@ -109,7 +109,7 @@ The new mirroring system is gradually replacing the old one. Key changes and beh
 - **Directory Browsing:** Web interface to explore available packages and versions
 - **Efficient Synchronization:** RSync support for incremental updates
 
-## Access Methods
+### Access Methods
 
 ### Method 1: HTTP/HTTPS (Web Browser or wget/curl)
 
@@ -129,16 +129,13 @@ Use this method for:
 ```bash
 # Browse SWNG repositories (main operational repository)
 curl https://upstream.cloudlinux.com/swng/
-# Shows: 8/, 9/, 10/, etc. - Current CloudLinux versions
+# Shows: 10/ now; 8/9 coming soon
 
-# Browse SWNG for CloudLinux 9
-curl https://upstream.cloudlinux.com/swng/9/
+# Browse SWNG for CloudLinux 10
+curl https://upstream.cloudlinux.com/swng/10/
 
 # Browse CloudLinux repository (for conversion tools and legacy packages)
-curl https://upstream.cloudlinux.com/cloudlinux/8/
-
-# Browse CloudLinux 9 BaseOS repository
-curl https://upstream.cloudlinux.com/cloudlinux/9/BaseOS/x86_64/os/
+curl https://upstream.cloudlinux.com/cloudlinux/10/
 
 # List available SWNG versions (main repository)
 curl https://upstream.cloudlinux.com/swng/
@@ -168,310 +165,12 @@ rsync -av --delete rsync://rsync.upstream.cloudlinux.com/SWNG/ /path/to/local/mi
 rsync -av --delete rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ /path/to/local/mirror/cloudlinux/
 ```
 
-
-## Creating a Local Mirror
-
-### Step 1: Prepare Storage
-
-Ensure you have sufficient disk space. Repository mirrors can require several hundred gigabytes to multiple terabytes depending on what you mirror.
-
-**Storage recommendation:** Use a dedicated disk or partition for mirror storage to avoid filling the root filesystem and to improve I/O performance.
-
-**Sizing guidance:**
-- SWNG mirror size is approximately **500 GB**
-- The full `repo.cloudlinux.com` (CloudLinux repository) is **3+ TB**
-- In most cases, **sync `repo.cloudlinux.com` only partially** (only the repositories you actually need)
-
-**Recommendation:** For most production environments, prioritize mirroring **SWNG** (the main operational repository) as it contains all packages needed for operational systems.
-
-```bash
-# Check available space
-df -h
-
-# Create mirror directories
-mkdir -p /var/www/mirrors/swng       # Main operational repository (recommended)
-mkdir -p /var/www/mirrors/cloudlinux # Conversion tools and legacy packages (only if required)
-```
-
-### Step 2: Initial Sync
-
-Perform the initial synchronization (this may take several hours depending on your connection):
-
-**Recommended: Sync SWNG (Main Operational Repository)**
-
-```bash
-# Sync SWNG repository (main operational repository - recommended)
-rsync -av --delete \
-  --progress \
-  --log-file=/var/log/swng-mirror.log \
-  rsync://rsync.upstream.cloudlinux.com/SWNG/ \
-  /var/www/mirrors/swng/
-```
-
-**Note:** After setting up your mirror, ensure you configure a valid SSL certificate. The Ansible playbooks in this repository include automatic SSL certificate setup using Certbot. See the "Adding Your Mirror to CloudLinux Mirror Rotation" section for SSL certificate requirements.
-
-**Optional: Sync CloudLinux Repository (for conversion tools and legacy packages)**
-
-```bash
-# Sync CloudLinux repository (only if you want to have fully autonomous setup)
-rsync -av --delete \
-  --progress \
-  --log-file=/var/log/cloudlinux-mirror.log \
-  rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ \
-  /var/www/mirrors/cloudlinux/
-```
-
-### Step 3: Set Up Automated Updates
-
-Create a cron job or systemd timer to keep your mirror updated:
-
-**Option A: Cron Job**
-
-```bash
-# Edit crontab
-crontab -e
-
-# Add line to sync every 4 hours
-0 */4 * * * rsync -av --delete --quiet rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ /var/www/mirrors/cloudlinux/ >> /var/log/cloudlinux-mirror.log 2>&1
-```
-
-**Option B: Systemd Timer**
-
-Create `/etc/systemd/system/cloudlinux-mirror.service`:
-
-```ini
-[Unit]
-Description=Sync CloudLinux Repository Mirror
-After=network.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/rsync -av --delete rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ /var/www/mirrors/cloudlinux/
-StandardOutput=append:/var/log/cloudlinux-mirror.log
-StandardError=append:/var/log/cloudlinux-mirror.log
-```
-
-Create `/etc/systemd/system/cloudlinux-mirror.timer`:
-
-```ini
-[Unit]
-Description=Run CloudLinux Mirror Sync Every 4 Hours
-Requires=cloudlinux-mirror.service
-
-[Timer]
-OnCalendar=*-*-* 00,04,08,12,16,20:00:00
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-```
-
-Enable and start:
-
-```bash
-systemctl enable cloudlinux-mirror.timer
-systemctl start cloudlinux-mirror.timer
-```
-
-## Cloning Specific Repositories
-
-### Using yum_reposync for Specific Repositories
-
-For YUM-based repositories, you can use `yum_reposync` to clone specific repository paths:
-
-#### Step 1: Install Required Tools
-
-```bash
-yum install -y yum-utils createrepo
-```
-
-#### Step 2: Create Repository Configuration for Specific Repositories
-
-Create `/etc/yum.repos.d/cloudlinux-upstream.repo` with specific repository paths:
-
-**Example: CloudLinux 9 BaseOS x86_64**
-
-```ini
-[CloudLinux-9-x86_64]
-name=CloudLinux 9 BaseOS x86_64
-baseurl=https://upstream.cloudlinux.com/cloudlinux/9/BaseOS/x86_64/os/
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
-```
-
-**Example: CloudLinux 8 Updates x86_64**
-
-```ini
-[CloudLinux-8-x86_64-Updates]
-name=CloudLinux 8 Updates x86_64
-baseurl=https://upstream.cloudlinux.com/cloudlinux/8/x86_64/updates/
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
-```
-
-**Example: Multiple Repositories**
-
-```ini
-[CloudLinux-9-x86_64-BaseOS]
-name=CloudLinux 9 BaseOS x86_64
-baseurl=https://upstream.cloudlinux.com/cloudlinux/9/BaseOS/x86_64/os/
-enabled=1
-gpgcheck=1
-
-[CloudLinux-9-x86_64-AppStream]
-name=CloudLinux 9 AppStream x86_64
-baseurl=https://upstream.cloudlinux.com/cloudlinux/9/AppStream/x86_64/os/
-enabled=1
-gpgcheck=1
-
-[CloudLinux-9-x86_64-Extras]
-name=CloudLinux 9 Extras x86_64
-baseurl=https://upstream.cloudlinux.com/cloudlinux/9/extras/x86_64/os/
-enabled=1
-gpgcheck=1
-```
-
-#### Step 3: Sync Specific Repository
-
-```bash
-# Sync CloudLinux 9 BaseOS repository
-reposync -p /var/www/mirrors/cloudlinux/ -r CloudLinux-9-x86_64
-
-# Sync multiple repositories
-reposync -p /var/www/mirrors/cloudlinux/ -r CloudLinux-9-x86_64-BaseOS -r CloudLinux-9-x86_64-AppStream
-
-# Update repository metadata after sync
-createrepo /var/www/mirrors/cloudlinux/CloudLinux-9-x86_64/
-```
-
-#### Step 4: Browse Available Repositories
-
-You can explore available repository paths using curl:
-
-```bash
-# List CloudLinux versions
-curl https://upstream.cloudlinux.com/cloudlinux/
-
-# List CloudLinux 9 repositories
-curl https://upstream.cloudlinux.com/cloudlinux/9/
-
-# List BaseOS architectures
-curl https://upstream.cloudlinux.com/cloudlinux/9/BaseOS/
-
-# List specific repository contents
-curl https://upstream.cloudlinux.com/cloudlinux/9/BaseOS/x86_64/os/
-```
-
-### Using RSync for Specific Repository Paths
-
-You can clone specific repository paths using RSync by specifying the path after the module name:
-
-#### Basic RSync for Specific Paths
-
-```bash
-# Clone CloudLinux 9 BaseOS repository
-rsync -av --delete \
-  rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/9/BaseOS/ \
-  /var/www/mirrors/cloudlinux/9/BaseOS/
-
-# Clone CloudLinux 9 BaseOS x86_64 only
-rsync -av --delete \
-  rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/9/BaseOS/x86_64/ \
-  /var/www/mirrors/cloudlinux/9/BaseOS/x86_64/
-
-# Clone CloudLinux 8 Updates repository
-rsync -av --delete \
-  rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/8/x86_64/updates/ \
-  /var/www/mirrors/cloudlinux/8/x86_64/updates/
-```
-
-#### Explore Available RSync Paths
-
-You can list available paths using RSync:
-
-```bash
-# List available modules
-rsync rsync://rsync.upstream.cloudlinux.com/
-
-# List CloudLinux repository structure
-rsync rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/
-
-# List CloudLinux 9 structure
-rsync rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/9/
-
-# List BaseOS structure
-rsync rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/9/BaseOS/
-
-# Example output:
-# drwxr-xr-x             28 2025/11/14 15:00:10 .
-# drwxr-xr-x             33 2025/11/14 15:00:14 x86_64
-```
-
-#### Complete Example: Cloning CloudLinux 9 BaseOS
-
-```bash
-# Create destination directory
-mkdir -p /var/www/mirrors/cloudlinux/9/BaseOS
-
-# Clone the repository
-rsync -av --delete \
-  --progress \
-  --log-file=/var/log/cloudlinux-9-baseos-sync.log \
-  rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/9/BaseOS/ \
-  /var/www/mirrors/cloudlinux/9/BaseOS/
-
-# Verify the sync
-ls -lh /var/www/mirrors/cloudlinux/9/BaseOS/
-```
-
-#### Automated Sync for Specific Repositories
-
-Create a systemd service for automated syncing of specific repositories:
-
-**`/etc/systemd/system/cloudlinux-9-baseos-sync.service`:**
-
-```ini
-[Unit]
-Description=Sync CloudLinux 9 BaseOS Repository
-After=network.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/rsync -av --delete rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/9/BaseOS/ /var/www/mirrors/cloudlinux/9/BaseOS/
-StandardOutput=append:/var/log/cloudlinux-9-baseos-sync.log
-StandardError=append:/var/log/cloudlinux-9-baseos-sync.log
-```
-
-**`/etc/systemd/system/cloudlinux-9-baseos-sync.timer`:**
-
-```ini
-[Unit]
-Description=Run CloudLinux 9 BaseOS Sync Every 6 Hours
-Requires=cloudlinux-9-baseos-sync.service
-
-[Timer]
-OnCalendar=*-*-* 00,06,12,18:00:00
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-```
-
-Enable and start:
-
-```bash
-systemctl enable cloudlinux-9-baseos-sync.timer
-systemctl start cloudlinux-9-baseos-sync.timer
-```
-
 ## Mirroring SWNG Repositories
 
 **SWNG (Spacewalk Next Generation) is the main operational repository** for CloudLinux systems. It contains:
 - All packages required for operational CloudLinux systems
 - Regular security and feature updates
-- Current and actively maintained CloudLinux versions (8, 9, 10, etc.)
+- Current and actively maintained CloudLinux versions 10 (Support for earlier versions will be added later 8, 9 etc.)
 - The primary repository used by CloudLinux systems for day-to-day operations
 
 **For most production environments, SWNG should be your primary mirror**, as it contains all the packages needed for operational systems and receives regular updates.
@@ -513,312 +212,123 @@ listAllPackagesChecksum
 - The `8/`, `9/`, `10/` and `*-next` entries are symlinks pointing to the current minor release directories.
 - Directory browsing must be enabled so the index is publicly visible.
 
-This section provides comprehensive examples for creating local mirrors of SWNG repositories.
+## Automated Mirror Setup with Ansible
 
-### Example 1: Mirroring the Complete SWNG Repository with RSync (Recommended)
-### We recommend this particular ansible installation option.
+For organizations managing multiple mirror servers or requiring infrastructure-as-code approaches, Ansible playbooks are available to automate the complete mirror setup process.
 
+### Ansible Use Cases
 
-This example shows how to create a complete local mirror of all SWNG repositories using RSync with automated updates via systemd timers.
+- **Infrastructure Automation**: Automate mirror setup across multiple servers
+- **Configuration Management**: Version-controlled mirror configurations
+- **Multi-Environment Setup**: Easily replicate mirror setups in dev/staging/prod
+- **Compliance**: Documented, repeatable infrastructure setup
+- **Team Collaboration**: Shareable, maintainable mirror configurations
 
-#### Step 1: Prepare Storage and Initial Sync
+For detailed documentation, see `ansible/README.md` and individual playbook README files.
 
-```bash
-# Check available disk space (SWNG can require several hundred GB)
-df -h
+## Containerized Mirror Setup with Docker
 
-# Create mirror directory
-mkdir -p /var/www/mirrors/swng
+For containerized environments or when you want isolated mirror processes, Docker and Docker Compose configurations are available.
 
-# Perform initial sync (this may take several hours)
-rsync -av --delete \
-  --progress \
-  --log-file=/var/log/swng-mirror.log \
-  rsync://rsync.upstream.cloudlinux.com/SWNG/ \
-  /var/www/mirrors/swng/
+### Docker Use Cases
+
+- **Containerized Infrastructure**: Run mirrors in isolated containers
+- **Easy Deployment**: Simple `docker compose up` to start mirroring
+- **Resource Isolation**: Controlled CPU and memory usage
+- **Portability**: Run on any Docker-compatible platform
+- **Development/Testing**: Quick setup for testing mirror configurations
+- **Microservices Architecture**: Integrate mirrors into containerized environments
+- **Cloud Deployments**: Deploy mirrors in Kubernetes, Docker Swarm, or cloud container services
+
+### HTTPS/Let's Encrypt (Docker)
+
+For Docker-based setups using the bundled Nginx service and Let's Encrypt:
+
+- Ensure `CERTBOT_DOMAIN` points to this server (DNS A/AAAA record).
+- Open inbound ports `80` and `443`.
+- Set `CERTBOT_EMAIL` and `CERTBOT_DOMAIN` in `.env`.
+
+On first run, Nginx starts in HTTP-only mode for ACME. Once the certificate is issued,
+it automatically reloads and enables HTTPS.
+
+### Volume Management
+
+Mirror data and logs are stored in persistent volumes:
+
+```yaml
+volumes:
+  - ./mirror-data:/var/www/mirrors/swng
+  - ./logs:/var/log
 ```
 
-#### Step 2: Create Systemd Service and Timer for Automated Updates
+### Resource Limits
 
-Create `/etc/systemd/system/swng-mirror.service`:
+Docker Compose configurations include resource limits:
 
-```ini
-[Unit]
-Description=Sync Complete SWNG Repository Mirror
-After=network.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/rsync -av --delete \
-  rsync://rsync.upstream.cloudlinux.com/SWNG/ \
-  /var/www/mirrors/swng/
-StandardOutput=append:/var/log/swng-mirror.log
-StandardError=append:/var/log/swng-mirror.log
+```yaml
+deploy:
+  resources:
+    limits:
+      cpus: '2'
+      memory: 2G
 ```
 
-Create `/etc/systemd/system/swng-mirror.timer`:
-
-```ini
-[Unit]
-Description=Run Complete SWNG Mirror Sync Every 4 Hours
-Requires=swng-mirror.service
+For detailed documentation, see `docker/README.md` and individual setup README files.
 
-[Timer]
-OnCalendar=*-*-* 00,04,08,12,16,20:00:00
-Persistent=true
+## Installation Types
 
-[Install]
-WantedBy=timers.target
-```
+This repository provides multiple approaches to set up and maintain mirrors:
 
-Enable and start the timer:
+1. **Ansible Playbooks**: Infrastructure-as-code automation for multiple servers
+2. **Docker Containers**: Containerized mirror setups for isolated, portable deployments
+3. **Manual Setup**: Direct RSync commands and systemd timers for full control
 
-```bash
-systemctl daemon-reload
-systemctl enable swng-mirror.timer
-systemctl start swng-mirror.timer
+Choose the approach that best fits your infrastructure and requirements. All methods support the same mirroring capabilities with different levels of automation and deployment flexibility.
 
-# Check timer status
-systemctl status swng-mirror.timer
-systemctl list-timers swng-mirror.timer
-```
+Choose one of the supported installation types below. Each type has both Ansible and Docker implementations with full step-by-step instructions in the linked directories.
 
-### Example 2: Mirroring Specific SWNG Versions with RSync
+### 1) combined-mirror
 
-This example demonstrates how to mirror only specific CloudLinux versions from SWNG (e.g., only CloudLinux 8 or CloudLinux 9).
+Mirrors both **SWNG** and **repo.cloudlinux.com** (conversion/legacy content) in one setup.
 
-#### Mirroring CloudLinux 8 SWNG Only
+- Supports combined or separate sync modes
+- Best for: Full, self-contained mirror environments
+- Storage: Highest (SWNG + CloudLinux)
+- Ansible: `ansible/combined-mirror/README.md`
+- Docker: `docker/combined-mirror/README.md`
 
-```bash
-# Create destination directory
-mkdir -p /var/www/mirrors/swng/8
+### 2) complete-swng-rsync
 
-# Sync CloudLinux 8 SWNG repositories
-rsync -av --delete \
-  --progress \
-  --log-file=/var/log/swng-8-mirror.log \
-  rsync://rsync.upstream.cloudlinux.com/SWNG/8/ \
-  /var/www/mirrors/swng/8/
-```
+Mirrors the **entire SWNG** repository (all supported versions).
 
-#### Mirroring CloudLinux 9 SWNG Only
+- Sets up complete SWNG repository mirror using RSync
+- Configures systemd timers for automated updates
+- Best for: Central SWNG mirror, full operational updates
+- Storage: High (SWNG only)
+- Ansible: `ansible/complete-swng-rsync/README.md`
+- Docker: `docker/complete-swng-rsync/README.md`
 
-```bash
-# Create destination directory
-mkdir -p /var/www/mirrors/swng/9
+### 3) specific-version-rsync (Recommended)
 
-# Sync CloudLinux 9 SWNG repositories
-rsync -av --delete \
-  --progress \
-  --log-file=/var/log/swng-9-mirror.log \
-  rsync://rsync.upstream.cloudlinux.com/SWNG/9/ \
-  /var/www/mirrors/swng/9/
-```
+Mirrors **only SWNG for CloudLinux 10** (8/9 support coming soon).
 
-#### Automated Sync for Specific SWNG Version with Timer
+- Mirrors specific CloudLinux versions (10 now; 8/9 coming soon)
+- Version-specific systemd services and timers
+- Best for: Smaller storage footprint, single-version environments, needing only specific versions
+- Storage: Lower
+- Ansible: `ansible/specific-version-rsync(Recomended)/README.md`
+- Docker: `docker/specific-version-rsync/README.md`
 
-Create `/etc/systemd/system/swng-9-mirror.service`:
+### 4) yum-reposync
 
-```ini
-[Unit]
-Description=Sync CloudLinux 9 SWNG Repository Mirror
-After=network.target
+Uses `reposync` to mirror **specific SWNG repositories** (selective subsets).
 
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/rsync -av --delete \
-  rsync://rsync.upstream.cloudlinux.com/SWNG/9/ \
-  /var/www/mirrors/swng/9/
-StandardOutput=append:/var/log/swng-9-mirror.log
-StandardError=append:/var/log/swng-9-mirror.log
-```
-
-Create `/etc/systemd/system/swng-9-mirror.timer`:
-
-```ini
-[Unit]
-Description=Run CloudLinux 9 SWNG Mirror Sync Every 6 Hours
-Requires=swng-9-mirror.service
-
-[Timer]
-OnCalendar=*-*-* 00,06,12,18:00:00
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-```
-
-Enable and start:
-
-```bash
-systemctl daemon-reload
-systemctl enable swng-9-mirror.timer
-systemctl start swng-9-mirror.timer
-```
-
-### Example 3: Mirroring Specific SWNG Repositories with yum-reposync
-
-This example shows how to use `reposync` (from `yum-utils`) to mirror specific SWNG repositories for specific CloudLinux versions.
-
-#### Step 1: Install Required Tools
-
-```bash
-yum install -y yum-utils createrepo
-```
-
-#### Step 2: Create Repository Configuration for SWNG
-
-Create `/etc/yum.repos.d/swng-upstream.repo`:
-
-**Example: CloudLinux 9 SWNG x86_64**
-
-```ini
-[SWNG-9-x86_64]
-name=CloudLinux 9 SWNG x86_64 (Main Operational Repository)
-baseurl=https://upstream.cloudlinux.com/swng/9/x86_64/
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
-```
-
-**Example: CloudLinux 8 SWNG x86_64**
-
-```ini
-[SWNG-8-x86_64]
-name=CloudLinux 8 SWNG x86_64 (Main Operational Repository)
-baseurl=https://upstream.cloudlinux.com/swng/8/x86_64/
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
-```
-
-**Note:** The SWNG repository structure at `https://upstream.cloudlinux.com/swng/` contains version directories (8/, 9/, 10/, etc.). Each version directory contains architecture-specific subdirectories (x86_64/, aarch64/, etc.) with the actual repository content.
-
-**Example: Multiple SWNG Repositories**
-
-```ini
-[SWNG-9-x86_64]
-name=CloudLinux 9 SWNG x86_64
-baseurl=https://upstream.cloudlinux.com/swng/9/x86_64/
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
-
-[SWNG-8-x86_64]
-name=CloudLinux 8 SWNG x86_64
-baseurl=https://upstream.cloudlinux.com/swng/8/x86_64/
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
-```
-
-#### Step 3: Sync Specific SWNG Repository
-
-```bash
-# Sync CloudLinux 9 SWNG repository
-reposync -p /var/www/mirrors/swng/ -r SWNG-9-x86_64
-
-# Sync multiple SWNG repositories
-reposync -p /var/www/mirrors/swng/ -r SWNG-9-x86_64 -r SWNG-8-x86_64
-
-# Update repository metadata after sync
-createrepo /var/www/mirrors/swng/SWNG-9-x86_64/
-createrepo /var/www/mirrors/swng/SWNG-8-x86_64/
-```
-
-#### Step 4: Create Automated Sync with Systemd Timer
-
-Create `/etc/systemd/system/swng-reposync.service`:
-
-```ini
-[Unit]
-Description=Sync SWNG Repositories with reposync
-After=network.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/reposync -p /var/www/mirrors/swng/ -r SWNG-9-x86_64 -r SWNG-8-x86_64
-ExecStartPost=/usr/bin/createrepo /var/www/mirrors/swng/SWNG-9-x86_64/
-ExecStartPost=/usr/bin/createrepo /var/www/mirrors/swng/SWNG-8-x86_64/
-StandardOutput=append:/var/log/swng-reposync.log
-StandardError=append:/var/log/swng-reposync.log
-```
-
-Create `/etc/systemd/system/swng-reposync.timer`:
-
-```ini
-[Unit]
-Description=Run SWNG reposync Every 6 Hours
-Requires=swng-reposync.service
-
-[Timer]
-OnCalendar=*-*-* 00,06,12,18:00:00
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-```
-
-Enable and start:
-
-```bash
-systemctl daemon-reload
-systemctl enable swng-reposync.timer
-systemctl start swng-reposync.timer
-```
-
-### Example 4: Mirroring Specific SWNG Repository Paths with RSync
-
-You can mirror specific repository paths within SWNG:
-
-```bash
-# Mirror CloudLinux 9 SWNG x86_64 only
-rsync -av --delete \
-  rsync://rsync.upstream.cloudlinux.com/SWNG/9/x86_64/ \
-  /var/www/mirrors/swng/9/x86_64/
-
-# Mirror CloudLinux 8 SWNG x86_64 only
-rsync -av --delete \
-  rsync://rsync.upstream.cloudlinux.com/SWNG/8/x86_64/ \
-  /var/www/mirrors/swng/8/x86_64/
-
-# Explore available SWNG paths
-rsync rsync://rsync.upstream.cloudlinux.com/SWNG/
-rsync rsync://rsync.upstream.cloudlinux.com/SWNG/9/
-```
-
-### Example 5: Combined CloudLinux and SWNG Mirroring
-
-Create a comprehensive mirror setup that includes both CloudLinux and SWNG:
-
-Create `/etc/systemd/system/cloudlinux-complete-mirror.service`:
-
-```ini
-[Unit]
-Description=Sync Complete CloudLinux and SWNG Mirrors
-After=network.target
-
-[Service]
-Type=oneshot
-ExecStart=/bin/bash -c '/usr/bin/rsync -av --delete rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ /var/www/mirrors/cloudlinux/ && /usr/bin/rsync -av --delete rsync://rsync.upstream.cloudlinux.com/SWNG/ /var/www/mirrors/swng/'
-StandardOutput=append:/var/log/cloudlinux-complete-mirror.log
-StandardError=append:/var/log/cloudlinux-complete-mirror.log
-```
-
-Create `/etc/systemd/system/cloudlinux-complete-mirror.timer`:
-
-```ini
-[Unit]
-Description=Run Complete CloudLinux and SWNG Mirror Sync Every 4 Hours
-Requires=cloudlinux-complete-mirror.service
-
-[Timer]
-OnCalendar=*-*-* 00,04,08,12,16,20:00:00
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-```
+- Uses yum-reposync for selective repository mirroring
+- Automatic metadata generation
+- Best for: Tight control over which repos/arches are synced
+- Storage: Lowest (only selected repos)
+- Ansible: `ansible/yum-reposync/README.md`
+- Docker: `docker/yum-reposync/README.md`
 
 ## Adding Your Mirror to CloudLinux Mirror Rotation
 
@@ -1242,28 +752,6 @@ server {
 - Requires webroot directory to be accessible
 - Use when: Nginx must remain running
 
-## Usage
-
-### Enable SSL (Default)
-```bash
-ansible-playbook -i inventory.ini playbook.yml
-```
-
-### Disable SSL
-```bash
-ansible-playbook -i inventory.ini playbook.yml -e "certbot_enabled=false"
-```
-
-### Custom Domain
-```bash
-ansible-playbook -i inventory.ini playbook.yml -e "mirror_domain=mirror.example.com"
-```
-
-### Use Webroot Authenticator
-```bash
-ansible-playbook -i inventory.ini playbook.yml -e "certbot_authenticator=webroot"
-```
-
 ## Certificate Renewal
 
 Certificates are automatically renewed via cron job (default: daily at 3:00 AM). The renewal hook reloads Nginx to use the new certificates.
@@ -1275,203 +763,6 @@ Certificates are automatically renewed via cron job (default: daily at 3:00 AM).
 - `/etc/nginx/conf.d/<service>-https.conf` - HTTPS configuration
 - Cron job for automatic renewal
 
-## Automated Mirror Setup with Ansible
-
-For organizations managing multiple mirror servers or requiring infrastructure-as-code approaches, Ansible playbooks are available to automate the complete mirror setup process.
-
-### Available Ansible Playbooks
-
-The repository includes several Ansible playbooks located in the `ansible/` directory:
-
-1. **Complete SWNG Mirror (Recomended)** (`ansible/complete-swng-rsync/`)
-   - Sets up complete SWNG repository mirror using RSync
-   - Configures systemd timers for automated updates
-   - Best for: Complete SWNG mirroring needs
-
-2. **Specific Version Mirror** (`ansible/specific-version-rsync/`)
-   - Mirrors specific CloudLinux versions (8 or 9)
-   - Version-specific systemd services and timers
-   - Best for: Organizations needing only specific versions
-
-3. **SWNG Mirror with yum-reposync** (`ansible/yum-reposync/`)
-   - Uses yum-reposync for selective repository mirroring
-   - Automatic metadata generation
-   - Best for: Selective repository mirroring
-
-4. **Combined CloudLinux and SWNG Mirror** (`ansible/combined-mirror/`)
-   - Mirrors both CloudLinux and SWNG repositories
-   - Supports combined or separate sync modes
-   - Best for: Complete mirror infrastructure
-
-### Quick Start with Ansible
-
-1. **Install Ansible** (if not already installed):
-
-```bash
-# On RHEL/CentOS/CloudLinux
-yum install -y ansible
-
-# On Debian/Ubuntu
-apt-get install -y ansible
-```
-
-2. **Choose a playbook** and navigate to its directory:
-
-```bash
-cd ansible/complete-swng-rsync
-```
-
-3. **Edit the inventory file** (`inventory.ini`) with your server details:
-
-```ini
-[mirror_servers]
-mirror-server-01 ansible_host=192.168.1.100
-
-[mirror_servers:vars]
-ansible_user=root
-ansible_ssh_private_key_file=~/.ssh/id_rsa
-```
-
-4. **Run the playbook**:
-
-```bash
-ansible-playbook -i inventory.ini playbook.yml
-```
-
-### Ansible Use Cases
-
-- **Infrastructure Automation**: Automate mirror setup across multiple servers
-- **Configuration Management**: Version-controlled mirror configurations
-- **Multi-Environment Setup**: Easily replicate mirror setups in dev/staging/prod
-- **Compliance**: Documented, repeatable infrastructure setup
-- **Team Collaboration**: Shareable, maintainable mirror configurations
-
-### Customization
-
-Each playbook supports extensive customization through variables:
-
-```bash
-# Override default variables
-ansible-playbook -i inventory.ini playbook.yml \
-  -e "mirror_base_path=/opt/mirrors" \
-  -e "sync_interval_hours=6"
-
-# Use variables file
-ansible-playbook -i inventory.ini playbook.yml -e @vars.yml
-```
-
-For detailed documentation, see `ansible/README.md` and individual playbook README files.
-
-## Containerized Mirror Setup with Docker
-
-For containerized environments or when you want isolated mirror processes, Docker and Docker Compose configurations are available.
-
-### Available Docker Setups
-
-The repository includes several Docker configurations located in the `docker/` directory:
-
-1. **Complete SWNG Mirror** (`docker/complete-swng-rsync/`)
-   - Containerized complete SWNG mirror
-   - Cron-based automated syncs
-   - Best for: Containerized SWNG mirroring
-
-2. **Specific Version Mirror** (`docker/specific-version-rsync/`)
-   - Containerized version-specific mirrors
-   - Separate containers per version
-   - Best for: Version-specific containerized mirrors
-
-3. **SWNG Mirror with yum-reposync** (`docker/yum-reposync/`)
-   - Containerized selective repository mirroring
-   - Automatic metadata generation
-   - Best for: Selective containerized mirroring
-
-4. **Combined CloudLinux and SWNG Mirror** (`docker/combined-mirror/`)
-   - Containerized complete mirror setup
-   - Optional Nginx web server included
-   - Best for: Complete containerized mirror infrastructure
-
-### Quick Start with Docker Compose
-
-1. **Navigate to a Docker setup directory**:
-
-```bash
-cd docker/complete-swng-rsync
-```
-
-2. **Create data directories**:
-
-```bash
-mkdir -p mirror-data logs
-```
-
-3. **Start the container**:
-
-```bash
-docker-compose up -d
-```
-
-4. **View logs**:
-
-```bash
-docker-compose logs -f
-```
-
-### Docker Use Cases
-
-- **Containerized Infrastructure**: Run mirrors in isolated containers
-- **Easy Deployment**: Simple `docker-compose up` to start mirroring
-- **Resource Isolation**: Controlled CPU and memory usage
-- **Portability**: Run on any Docker-compatible platform
-- **Development/Testing**: Quick setup for testing mirror configurations
-- **Microservices Architecture**: Integrate mirrors into containerized environments
-- **Cloud Deployments**: Deploy mirrors in Kubernetes, Docker Swarm, or cloud container services
-
-### Docker Configuration Options
-
-All Docker setups support environment variable configuration:
-
-```yaml
-# docker-compose.yml
-environment:
-  - RSYNC_SOURCE=rsync://rsync.upstream.cloudlinux.com/SWNG/
-  - MIRROR_PATH=/var/www/mirrors/swng
-  - INITIAL_SYNC=true
-  - SYNC_INTERVAL_HOURS=4
-```
-
-### Volume Management
-
-Mirror data and logs are stored in persistent volumes:
-
-```yaml
-volumes:
-  - ./mirror-data:/var/www/mirrors/swng
-  - ./logs:/var/log
-```
-
-### Resource Limits
-
-Docker Compose configurations include resource limits:
-
-```yaml
-deploy:
-  resources:
-    limits:
-      cpus: '2'
-      memory: 2G
-```
-
-### Serving Mirrors from Containers
-
-The combined mirror setup includes an optional Nginx service:
-
-```bash
-# Access mirrors via web server
-curl http://localhost/cloudlinux/
-curl http://localhost/swng/
-```
-
-For detailed documentation, see `docker/README.md` and individual setup README files.
 
 ## Choosing the Right Approach
 
@@ -1621,15 +912,17 @@ Create `/etc/httpd/conf.d/cloudlinux-mirror.conf`:
    - Consider using SSD for frequently accessed repositories
    - Monitor I/O performance
 
-### Partial Syncs
 
+
+## Advanced Options
+
+### Partial Syncs
 If a sync is interrupted, RSync will resume from where it left off on the next run. The `--partial` option can help with large files:
+The --partial option tells rsync to save partially downloaded files and download them later, which saves time and traffic when dealing with large ISOs/archives.
 
 ```bash
 rsync -av --delete --partial rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ /var/www/mirrors/cloudlinux/
 ```
-
-## Advanced Options
 
 ### Selective Synchronization
 
@@ -1671,70 +964,8 @@ rsync -avz --delete \
   /var/www/mirrors/cloudlinux/
 ```
 
-## Support and Resources
 
-- **HTTP/HTTPS URL:** https://upstream.cloudlinux.com/
-- **SWNG (Main Operational Repository):** https://upstream.cloudlinux.com/swng/
-- **CloudLinux Repository (Conversion Tools):** https://upstream.cloudlinux.com/cloudlinux/
-- **RSync Endpoint:** rsync://rsync.upstream.cloudlinux.com/
-- **RSync Modules:** `SWNG` (main operational), `CLOUDLINUX` (conversion tools)
-- **Public Mirrorlist:** https://repo.cloudlinux.com/cloudlinux/mirrorlists/cl-mirrors
-- **Documentation:** Check CloudLinux documentation for repository configuration
-- **Support:** Contact CloudLinux support for assistance with mirroring and adding your mirror to the mirror service
-
-### Repository Structure
-
-The SWNG repository structure at `https://upstream.cloudlinux.com/swng/` contains:
-- Version directories: `8/`, `9/`, `10/`, etc. (current CloudLinux versions)
-- Each version directory contains architecture-specific subdirectories (e.g., `x86_64/`, `aarch64/`)
-- These contain the actual repository metadata and packages
-
-Example structure:
-```
-/swng/
-  ├── 8/          (CloudLinux 8)
-  ├── 9/          (CloudLinux 9)
-  ├── 10/         (CloudLinux 10)
-  └── ...
-```
-
-## Summary
-
-`upstream.cloudlinux.com` provides a reliable, efficient way to create and maintain local mirrors of CloudLinux repositories. Whether you use HTTP/HTTPS for occasional downloads or RSync for complete mirroring, this service ensures you have the content you need when you need it.
-
-### Repository Overview
-
-- **SWNG** (`https://upstream.cloudlinux.com/swng/`) - **Main operational repository**
-  - Contains all packages for operational CloudLinux systems
-  - Receives regular security and feature updates
-  - Current versions: 8, 9, 10, etc.
-  - **Recommended for most production environments**
-
-- **CloudLinux Repository** (`https://upstream.cloudlinux.com/cloudlinux/`)
-  - Conversion scripts and tools
-  - Installation images and ISO files
-  - Older versions and legacy packages
-  - Source packages (SRPMs)
-
-### Key Advantages
-
-- ✅ No authentication required
-- ✅ Multiple access methods (HTTP/HTTPS, RSync)
-- ✅ Efficient incremental updates
-- ✅ Complete repository content
-- ✅ Reliable and maintained by CloudLinux
-
-### Automation Options
-
-This repository provides multiple approaches to set up and maintain mirrors:
-
-1. **Manual Setup**: Direct RSync commands and systemd timers for full control
-2. **Ansible Playbooks**: Infrastructure-as-code automation for multiple servers
-3. **Docker Containers**: Containerized mirror setups for isolated, portable deployments
-
-Choose the approach that best fits your infrastructure and requirements. All methods support the same mirroring capabilities with different levels of automation and deployment flexibility.
-
-### Recommendation
+## Recommendation
 
 For most production environments, **prioritize mirroring SWNG** as it contains all packages needed for operational systems and receives regular updates. Mirror the CloudLinux repository (`/cloudlinux/`) only if you need conversion tools, installation images, or legacy packages.
 
@@ -1746,3 +977,524 @@ For most production environments, **prioritize mirroring SWNG** as it contains a
 - HTTPS properly configured and working
 - Automatic certificate renewal configured
 - See the "Adding Your Mirror to CloudLinux Mirror Rotation" section for detailed requirements
+
+## Support and Resources
+
+- **HTTP/HTTPS URL:** https://upstream.cloudlinux.com/
+- **SWNG (Main Operational Repository):** https://upstream.cloudlinux.com/swng/
+- **CloudLinux Repository (Conversion Tools):** https://upstream.cloudlinux.com/cloudlinux/
+- **RSync Endpoint:** rsync://rsync.upstream.cloudlinux.com/
+- **RSync Modules:** `SWNG` (main operational), `CLOUDLINUX` (conversion tools)
+- **Public Mirrorlist:** https://repo.cloudlinux.com/cloudlinux/mirrorlists/cl-mirrors
+- **Documentation:** Check CloudLinux documentation for repository configuration
+- **Support:** Contact CloudLinux support for assistance with mirroring and adding your mirror to the mirror service
+
+
+## Summary
+
+`upstream.cloudlinux.com` provides a reliable, efficient way to create and maintain local mirrors of CloudLinux repositories. Whether you use HTTP/HTTPS for occasional downloads or RSync for complete mirroring, this service ensures you have the content you need when you need it.
+
+
+## Manual Installations
+
+Short, direct examples. Adjust paths as needed.
+### Prepare Storage
+
+Ensure you have sufficient disk space. Repository mirrors can require several hundred gigabytes to multiple terabytes depending on what you mirror.
+
+**Storage recommendation:** Use a dedicated disk or partition for mirror storage to avoid filling the root filesystem and to improve I/O performance.
+
+**Sizing guidance:**
+- SWNG mirror size is approximately **500 GB**
+- The full `repo.cloudlinux.com` (CloudLinux repository) is **3+ TB**
+- In most cases, **sync `repo.cloudlinux.com` only partially** (only the repositories you actually need)
+
+**Recommendation:** For most production environments, prioritize mirroring **SWNG** (the main operational repository) as it contains all packages needed for operational systems.
+
+
+## 1. Combined-mirror: Mirroring SWNG + CloudLinux with RSync
+
+This example shows how to create a combined local mirror of SWNG and CloudLinux repositories using RSync with automated updates via systemd timers.
+
+#### Step 1: Prepare Storage and Initial Sync
+Check available disk space (SWNG can require several hundred GB)
+```bash
+df -h
+```
+Create mirror directories
+```bash
+mkdir -p /var/www/mirrors/swng /var/www/mirrors/cloudlinux
+
+# Perform initial sync (this may take several hours)
+rsync -av --delete \
+  --progress \
+  --log-file=/var/log/swng-mirror.log \
+  rsync://rsync.upstream.cloudlinux.com/SWNG/ \
+  /var/www/mirrors/swng/
+
+rsync -av --delete \
+  --progress \
+  --log-file=/var/log/cloudlinux-mirror.log \
+  rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ \
+  /var/www/mirrors/cloudlinux/
+```
+
+#### Step 2: Create Systemd Service and Timer for Automated Updates
+Create `/etc/systemd/system/combined-mirror.service`:
+
+```bash
+[Unit]
+Description=Sync Complete CloudLinux and SWNG Mirrors
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c '/usr/bin/rsync -av --delete rsync://rsync.upstream.cloudlinux.com/SWNG/ /var/www/mirrors/swng/ && /usr/bin/rsync -av --delete rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ /var/www/mirrors/cloudlinux/'
+StandardOutput=append:/var/log/combined-mirror.log
+StandardError=append:/var/log/combined-mirror.log
+```
+
+Create `/etc/systemd/system/combined-mirror.timer`:
+
+```bash
+[Unit]
+Description=Run Combined Mirror Sync Every 4 Hours
+Requires=combined-mirror.service
+
+[Timer]
+OnCalendar=*-*-* 00,04,08,12,16,20:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+Enable and start the timer:
+
+```bash
+systemctl daemon-reload
+systemctl enable combined-mirror.timer
+systemctl start combined-mirror.timer
+
+# Check timer status
+systemctl status combined-mirror.timer
+systemctl list-timers combined-mirror.timer
+```
+For automation (systemd timers), see `ansible/combined-mirror/README.md`.
+
+
+## 2. Complete-swng-rsync: Mirroring the Complete SWNG Repository with RSync
+
+This example shows how to create a complete local mirror of all SWNG repositories using RSync with automated updates via systemd timers.
+
+#### Step 1: Prepare Storage and Initial Sync
+Check available disk space (SWNG can require several hundred GB)
+```bash
+df -h
+```
+Create mirror directory
+```bash
+mkdir -p /var/www/mirrors/swng
+
+# Perform initial sync (this may take several hours)
+rsync -av --delete \
+  --progress \
+  --log-file=/var/log/swng-mirror.log \
+  rsync://rsync.upstream.cloudlinux.com/SWNG/ \
+  /var/www/mirrors/swng/
+```
+#### Step 2: Create Systemd Service and Timer for Automated Updates
+Create /etc/systemd/system/swng-mirror.service:
+
+```bash
+[Unit]
+Description=Sync Complete SWNG Repository Mirror
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rsync -av --delete \
+  rsync://rsync.upstream.cloudlinux.com/SWNG/ \
+  /var/www/mirrors/swng/
+StandardOutput=append:/var/log/swng-mirror.log
+StandardError=append:/var/log/swng-mirror.log
+```
+Create /etc/systemd/system/swng-mirror.timer:
+
+```bash
+[Unit]
+Description=Run Complete SWNG Mirror Sync Every 4 Hours
+Requires=swng-mirror.service
+
+[Timer]
+OnCalendar=*-*-* 00,04,08,12,16,20:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+Enable and start the timer:
+
+```bash
+systemctl daemon-reload
+systemctl enable swng-mirror.timer
+systemctl start swng-mirror.timer
+
+# Check timer status
+systemctl status swng-mirror.timer
+systemctl list-timers swng-mirror.timer
+```
+For automation (systemd timers), see `ansible/complete-swng-rsync/README.md`.
+
+
+## 3. Specific-version-rsync: Mirroring Specific SWNG Versions with RSync (Recommended)
+
+This example shows how to mirror a specific CloudLinux version (10) from SWNG using RSync with automated updates via systemd timers.
+
+#### Step 1: Prepare Storage and Initial Sync
+Check available disk space
+```bash
+df -h
+```
+Create mirror directory
+```bash
+mkdir -p /var/www/mirrors/swng/10
+
+# Perform initial sync (this may take several hours)
+rsync -av --delete \
+  --progress \
+  --log-file=/var/log/swng-10-mirror.log \
+  rsync://rsync.upstream.cloudlinux.com/SWNG/10/ \
+  /var/www/mirrors/swng/10/
+```
+
+#### Step 2: Create Systemd Service and Timer for Automated Updates
+Create `/etc/systemd/system/swng-10-mirror.service`:
+
+```bash
+[Unit]
+Description=Sync CloudLinux 10 SWNG Repository Mirror
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rsync -av --delete \
+  rsync://rsync.upstream.cloudlinux.com/SWNG/10/ \
+  /var/www/mirrors/swng/10/
+StandardOutput=append:/var/log/swng-10-mirror.log
+StandardError=append:/var/log/swng-10-mirror.log
+```
+
+Create `/etc/systemd/system/swng-10-mirror.timer`:
+
+```bash
+[Unit]
+Description=Run CloudLinux 10 SWNG Mirror Sync Every 6 Hours
+Requires=swng-10-mirror.service
+
+[Timer]
+OnCalendar=*-*-* 00,06,12,18:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+Enable and start the timer:
+
+```bash
+systemctl daemon-reload
+systemctl enable swng-10-mirror.timer
+systemctl start swng-10-mirror.timer
+
+# Check timer status
+systemctl status swng-10-mirror.timer
+systemctl list-timers swng-10-mirror.timer
+```
+
+For automation (systemd timers), see `ansible/specific-version-rsync(Recomended)/README.md`.
+
+
+## yum-reposync: Mirroring specific repositories with `reposync`
+### Current and actively maintained CloudLinux versions: 10 (8/9 coming soon)
+
+For YUM/DNF-based mirroring, you can use `reposync` to mirror specific repository paths:
+
+#### Step 1: Install Required Tools
+
+```bash
+dnf -y install dnf-plugins-core createrepo_c || yum -y install yum-utils createrepo
+```
+
+#### Step 2: Create Repository Configuration for Specific Repositories
+
+Create `/etc/yum.repos.d/cloudlinux-upstream.repo` with specific repository paths:
+
+**Example: CloudLinux 10 BaseOS x86_64**
+
+```ini
+[CloudLinux-10-x86_64]
+name=CloudLinux 10 BaseOS x86_64
+baseurl=https://upstream.cloudlinux.com/cloudlinux/10/BaseOS/x86_64/os/
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
+```
+
+**Example: CloudLinux 10 AppStream x86_64**
+
+```ini
+[CloudLinux-10-x86_64-AppStream]
+name=CloudLinux 10 AppStream x86_64
+baseurl=https://upstream.cloudlinux.com/cloudlinux/10/AppStream/x86_64/os/
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
+```
+
+**Example: Multiple Repositories (CloudLinux 10)**
+
+```ini
+[CloudLinux-10-x86_64-BaseOS]
+name=CloudLinux 10 BaseOS x86_64
+baseurl=https://upstream.cloudlinux.com/cloudlinux/10/BaseOS/x86_64/os/
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
+
+[CloudLinux-10-x86_64-AppStream]
+name=CloudLinux 10 AppStream x86_64
+baseurl=https://upstream.cloudlinux.com/cloudlinux/10/AppStream/x86_64/os/
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
+
+[CloudLinux-10-x86_64-Extras]
+name=CloudLinux 10 Extras x86_64
+baseurl=https://upstream.cloudlinux.com/cloudlinux/10/extras/x86_64/os/
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
+```
+
+#### Step 3: Sync Specific Repository
+
+```bash
+# Create destination directory
+mkdir -p /var/www/mirrors/cloudlinux
+
+# Sync CloudLinux 10 BaseOS repository
+reposync -p /var/www/mirrors/cloudlinux/ -r CloudLinux-10-x86_64
+
+# Sync multiple repositories
+reposync -p /var/www/mirrors/cloudlinux/ -r CloudLinux-10-x86_64-BaseOS -r CloudLinux-10-x86_64-AppStream
+
+# Update repository metadata after sync
+createrepo_c /var/www/mirrors/cloudlinux/CloudLinux-10-x86_64/ || createrepo /var/www/mirrors/cloudlinux/CloudLinux-10-x86_64/
+```
+
+#### Step 4: Browse Available Repositories
+
+You can explore available repository paths using curl:
+
+```bash
+# List CloudLinux versions
+curl https://upstream.cloudlinux.com/cloudlinux/
+
+# List CloudLinux 10 repositories
+curl https://upstream.cloudlinux.com/cloudlinux/10/
+
+# List BaseOS architectures
+curl https://upstream.cloudlinux.com/cloudlinux/10/BaseOS/
+
+# List specific repository contents
+curl https://upstream.cloudlinux.com/cloudlinux/10/BaseOS/x86_64/os/
+```
+
+### Using RSync for Specific Repository Paths
+
+You can clone specific repository paths using RSync by specifying the path after the module name:
+
+#### Basic RSync for Specific Paths
+
+```bash
+# Clone CloudLinux 10 BaseOS repository
+rsync -av --delete \
+  rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/10/BaseOS/ \
+  /var/www/mirrors/cloudlinux/10/BaseOS/
+
+# Clone CloudLinux 10 BaseOS x86_64 only
+rsync -av --delete \
+  rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/10/BaseOS/x86_64/ \
+  /var/www/mirrors/cloudlinux/10/BaseOS/x86_64/
+```
+
+#### Explore Available RSync Paths
+
+You can list available paths using RSync:
+
+```bash
+# List available modules
+rsync rsync://rsync.upstream.cloudlinux.com/
+
+# List CloudLinux repository structure
+rsync rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/
+
+# List CloudLinux 10 structure
+rsync rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/10/
+
+# List BaseOS structure
+rsync rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/10/BaseOS/
+
+# Example output:
+# drwxr-xr-x             28 2025/11/14 15:00:10 .
+# drwxr-xr-x             33 2025/11/14 15:00:14 x86_64
+```
+
+#### Complete Example: Cloning CloudLinux 10 BaseOS
+
+```bash
+# Create destination directory
+mkdir -p /var/www/mirrors/cloudlinux/10/BaseOS
+
+# Clone the repository
+rsync -av --delete \
+  --progress \
+  --log-file=/var/log/cloudlinux-10-baseos-sync.log \
+  rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/10/BaseOS/ \
+  /var/www/mirrors/cloudlinux/10/BaseOS/
+
+# Verify the sync
+ls -lh /var/www/mirrors/cloudlinux/10/BaseOS/
+```
+
+#### Automated Sync for Specific Repositories
+
+Create a systemd service for automated syncing of specific repositories:
+
+**`/etc/systemd/system/cloudlinux-10-baseos-sync.service`:**
+
+```ini
+[Unit]
+Description=Sync CloudLinux 10 BaseOS Repository
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rsync -av --delete rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/10/BaseOS/ /var/www/mirrors/cloudlinux/10/BaseOS/
+StandardOutput=append:/var/log/cloudlinux-10-baseos-sync.log
+StandardError=append:/var/log/cloudlinux-10-baseos-sync.log
+```
+
+**`/etc/systemd/system/cloudlinux-10-baseos-sync.timer`:**
+
+```ini
+[Unit]
+Description=Run CloudLinux 10 BaseOS Sync Every 6 Hours
+Requires=cloudlinux-10-baseos-sync.service
+
+[Timer]
+OnCalendar=*-*-* 00,06,12,18:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+Enable and start:
+
+```bash
+systemctl enable cloudlinux-10-baseos-sync.timer
+systemctl start cloudlinux-10-baseos-sync.timer
+```
+
+### Mirroring specific SWNG repositories with `reposync`
+
+This example shows how to use `reposync` (from `yum-utils`) to mirror specific SWNG repositories for specific CloudLinux versions.
+
+#### Step 1: Install Required Tools
+
+```bash
+dnf -y install dnf-plugins-core createrepo_c || yum -y install yum-utils createrepo
+```
+
+#### Step 2: Create Repository Configuration for SWNG
+
+Create `/etc/yum.repos.d/swng-upstream.repo`:
+
+**Example: CloudLinux 10 SWNG x86_64**
+
+```ini
+[SWNG-10-x86_64]
+name=CloudLinux 10 SWNG x86_64 (Main Operational Repository)
+baseurl=https://upstream.cloudlinux.com/swng/10/x86_64/
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
+```
+
+**Note:** The SWNG repository structure at `https://upstream.cloudlinux.com/swng/` contains version directories (10/, etc.). Each version directory contains architecture-specific subdirectories (x86_64/, aarch64/, etc.) with the actual repository content.
+
+**Example: Multiple SWNG Repositories (CloudLinux 10)**
+
+```ini
+[SWNG-10-x86_64]
+name=CloudLinux 10 SWNG x86_64
+baseurl=https://upstream.cloudlinux.com/swng/10/x86_64/
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
+```
+
+#### Step 3: Sync Specific SWNG Repository
+
+```bash
+# Create destination directory
+mkdir -p /var/www/mirrors/swng
+
+# Sync CloudLinux 10 SWNG repository
+reposync -p /var/www/mirrors/swng/ -r SWNG-10-x86_64
+
+# Update repository metadata after sync
+createrepo_c /var/www/mirrors/swng/SWNG-10-x86_64/ || createrepo /var/www/mirrors/swng/SWNG-10-x86_64/
+```
+
+#### Step 4: Create Automated Sync with Systemd Timer
+
+Create `/etc/systemd/system/swng-reposync.service`:
+
+```ini
+[Unit]
+Description=Sync SWNG Repositories with reposync
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/reposync -p /var/www/mirrors/swng/ -r SWNG-10-x86_64
+ExecStartPost=/bin/bash -c '/usr/bin/createrepo_c /var/www/mirrors/swng/SWNG-10-x86_64/ || /usr/bin/createrepo /var/www/mirrors/swng/SWNG-10-x86_64/'
+StandardOutput=append:/var/log/swng-reposync.log
+StandardError=append:/var/log/swng-reposync.log
+```
+
+Create `/etc/systemd/system/swng-reposync.timer`:
+
+```ini
+[Unit]
+Description=Run SWNG reposync Every 6 Hours
+Requires=swng-reposync.service
+
+[Timer]
+OnCalendar=*-*-* 00,06,12,18:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+Enable and start:
+
+```bash
+systemctl daemon-reload
+systemctl enable swng-reposync.timer
+systemctl start swng-reposync.timer
+```

@@ -1,6 +1,6 @@
 # Specific SWNG Version Mirror with RSync - Ansible Playbook
 
-### This is recomended type of instalation
+### This is the recommended type of installation
 This Ansible playbook sets up a local mirror of a specific CloudLinux version's SWNG repositories using RSync with automated updates via systemd timers.
 
 ## Prerequisites
@@ -48,8 +48,8 @@ ansible-playbook -i inventory.ini playbook.yml
 
 ### Version Support
 
-Only CloudLinux 10 is supported in this playbook at the moment.
-## How to install
+CloudLinux 10 is supported now. CloudLinux 8/9 support is coming soon.
+## How to Install
 Edit `inventory.ini` to specify your mirror server(s):
 
 ```ini
