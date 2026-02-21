@@ -1014,33 +1014,43 @@ Ensure you have sufficient disk space. Repository mirrors can require several hu
 
 ## 1. Combined-mirror: Mirroring SWNG + CloudLinux with RSync
 
-This example shows how to create a combined local mirror of SWNG and CloudLinux repositories using RSync with automated updates via systemd timers.
+This manual example mirrors what `ansible/combined-mirror` does in its **default** ("combined") mode:
+- Mirror paths under `/var/www/mirrors/`
+- RSync sources `SWNG/` and `CLOUDLINUX/`
+- A single systemd timer/service named `cloudlinux-complete-mirror`
+- Nginx serving `/cloudlinux/` and `/swng/` (with optional Let's Encrypt HTTPS)
 
 #### Step 1: Prepare Storage and Initial Sync
-Check available disk space (SWNG can require several hundred GB)
+
+Check available disk space (combined mirrors may require hundreds of GB to 1+ TB).
+
 ```bash
 df -h
 ```
-Create mirror directories
+
+Create mirror directories and run the initial sync (this may take hours).
+
 ```bash
 mkdir -p /var/www/mirrors/swng /var/www/mirrors/cloudlinux
 
-# Perform initial sync (this may take several hours)
-rsync -av --delete \
-  --progress \
-  --log-file=/var/log/swng-mirror.log \
-  rsync://rsync.upstream.cloudlinux.com/SWNG/ \
-  /var/www/mirrors/swng/
-
+# Initial CloudLinux sync
 rsync -av --delete \
   --progress \
   --log-file=/var/log/cloudlinux-mirror.log \
   rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ \
   /var/www/mirrors/cloudlinux/
+
+# Initial SWNG sync
+rsync -av --delete \
+  --progress \
+  --log-file=/var/log/swng-mirror.log \
+  rsync://rsync.upstream.cloudlinux.com/SWNG/ \
+  /var/www/mirrors/swng/
 ```
 
-#### Step 2: Create Systemd Service and Timer for Automated Updates
-Create `/etc/systemd/system/combined-mirror.service`:
+#### Step 2: Create systemd service + timer (combined mode)
+
+Create `/etc/systemd/system/cloudlinux-complete-mirror.service`:
 
 ```bash
 [Unit]
@@ -1049,17 +1059,17 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash -c '/usr/bin/rsync -av --delete rsync://rsync.upstream.cloudlinux.com/SWNG/ /var/www/mirrors/swng/ && /usr/bin/rsync -av --delete rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ /var/www/mirrors/cloudlinux/'
-StandardOutput=append:/var/log/combined-mirror.log
-StandardError=append:/var/log/combined-mirror.log
+ExecStart=/bin/bash -c '/usr/bin/rsync -av --delete rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ /var/www/mirrors/cloudlinux/ && /usr/bin/rsync -av --delete rsync://rsync.upstream.cloudlinux.com/SWNG/ /var/www/mirrors/swng/'
+StandardOutput=append:/var/log/cloudlinux-complete-mirror.log
+StandardError=append:/var/log/cloudlinux-complete-mirror.log
 ```
 
-Create `/etc/systemd/system/combined-mirror.timer`:
+Create `/etc/systemd/system/cloudlinux-complete-mirror.timer`:
 
 ```bash
 [Unit]
-Description=Run Combined Mirror Sync Every 4 Hours
-Requires=combined-mirror.service
+Description=Run Complete CloudLinux and SWNG Mirror Sync Every 4 Hours
+Requires=cloudlinux-complete-mirror.service
 
 [Timer]
 OnCalendar=*-*-* 00,04,08,12,16,20:00:00
@@ -1073,38 +1083,202 @@ Enable and start the timer:
 
 ```bash
 systemctl daemon-reload
-systemctl enable combined-mirror.timer
-systemctl start combined-mirror.timer
+systemctl enable cloudlinux-complete-mirror.timer
+systemctl start cloudlinux-complete-mirror.timer
 
 # Check timer status
-systemctl status combined-mirror.timer
-systemctl list-timers combined-mirror.timer
+systemctl status cloudlinux-complete-mirror.timer
+systemctl list-timers cloudlinux-complete-mirror.timer
 ```
-For automation (systemd timers), see `ansible/combined-mirror/README.md`.
+
+#### Step 3: Serve the mirror via Nginx (same paths as the playbook)
+
+Install Nginx with your OS package manager, then create an HTTP config at `/etc/nginx/conf.d/combined-mirror.conf` and start Nginx:
+
+```bash
+systemctl enable --now nginx
+systemctl status nginx
+
+# Test local HTTP access (works if you use the non-HTTPS config below)
+curl -I http://localhost/cloudlinux/ || true
+curl -I http://localhost/swng/ || true
+```
+
+**Option A (no HTTPS): serve over HTTP only**
+
+Create `/etc/nginx/conf.d/combined-mirror.conf`:
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name _;
+
+    root /var/www/mirrors;
+    index index.html;
+
+    # Enable directory listing
+    autoindex on;
+    autoindex_exact_size off;
+    autoindex_localtime on;
+
+    access_log /var/log/nginx/combined-mirror-access.log;
+    error_log /var/log/nginx/combined-mirror-error.log;
+
+    location /cloudlinux/ {
+        alias /var/www/mirrors/cloudlinux/;
+        autoindex on;
+    }
+
+    location /swng/ {
+        alias /var/www/mirrors/swng/;
+        autoindex on;
+    }
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    client_max_body_size 0;
+}
+```
+
+Reload Nginx:
+
+```bash
+nginx -t && systemctl reload nginx
+```
+
+**Option B (playbook default): Let's Encrypt HTTPS + HTTP→HTTPS redirect**
+
+Requirements:
+- `mirror.example.com` must resolve to the mirror server
+- inbound TCP `80` must be reachable during certificate issuance
+
+Obtain a certificate (standalone method, like the playbook default):
+
+```bash
+# Install certbot packages (package names may vary by distro)
+dnf install -y certbot python3-certbot-nginx
+
+# Stop nginx temporarily for standalone auth
+systemctl stop nginx || true
+
+certbot certonly --standalone --preferred-challenges http \
+  --non-interactive --agree-tos \
+  --email admin@mirror.example.com \
+  -d mirror.example.com
+
+systemctl start nginx
+```
+
+Create `/etc/nginx/conf.d/combined-mirror.conf` (HTTP→HTTPS redirect + ACME location):
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name mirror.example.com;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/mirrors/acme;
+    }
+
+    location / {
+        return 301 https://$server_name$request_uri;
+    }
+}
+```
+
+Create `/etc/nginx/conf.d/combined-mirror-https.conf`:
+
+```nginx
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name mirror.example.com;
+
+    root /var/www/mirrors;
+    index index.html;
+
+    ssl_certificate /etc/letsencrypt/live/mirror.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mirror.example.com/privkey.pem;
+
+    # SSL Security Settings
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    # Enable directory listing
+    autoindex on;
+    autoindex_exact_size off;
+    autoindex_localtime on;
+
+    access_log /var/log/nginx/combined-mirror-https-access.log;
+    error_log /var/log/nginx/combined-mirror-https-error.log;
+
+    location /cloudlinux/ {
+        alias /var/www/mirrors/cloudlinux/;
+        autoindex on;
+    }
+
+    location /swng/ {
+        alias /var/www/mirrors/swng/;
+        autoindex on;
+    }
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    client_max_body_size 0;
+}
+```
+
+Reload Nginx and verify:
+
+```bash
+nginx -t && systemctl reload nginx
+curl -I https://mirror.example.com/cloudlinux/ || true
+curl -I https://mirror.example.com/swng/ || true
+```
+
+For the full automation (including optional separate timers, Nginx templating, and certbot renewal), see `ansible/combined-mirror/README.md`.
 
 
 ## 2. Complete-swng-rsync: Mirroring the Complete SWNG Repository with RSync
 
-This example shows how to create a complete local mirror of all SWNG repositories using RSync with automated updates via systemd timers.
+This manual example mirrors what `ansible/complete-swng-rsync` does in its **default** mode:
+- Mirror path: `/var/www/mirrors/swng`
+- RSync source: `rsync://rsync.upstream.cloudlinux.com/SWNG/`
+- systemd units: `swng-mirror.service` + `swng-mirror.timer`
+- Nginx serving the mirror under `/swng/` (with optional Let's Encrypt HTTPS)
 
 #### Step 1: Prepare Storage and Initial Sync
-Check available disk space (SWNG can require several hundred GB)
+
+Check available disk space.
+
 ```bash
 df -h
 ```
-Create mirror directory
+
+Create mirror directory and run the initial sync (this may take hours).
+
 ```bash
 mkdir -p /var/www/mirrors/swng
 
-# Perform initial sync (this may take several hours)
 rsync -av --delete \
   --progress \
   --log-file=/var/log/swng-mirror.log \
   rsync://rsync.upstream.cloudlinux.com/SWNG/ \
   /var/www/mirrors/swng/
 ```
-#### Step 2: Create Systemd Service and Timer for Automated Updates
-Create /etc/systemd/system/swng-mirror.service:
+
+#### Step 2: Create systemd service + timer for automated updates
+
+Create `/etc/systemd/system/swng-mirror.service`:
 
 ```bash
 [Unit]
@@ -1113,13 +1287,12 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/rsync -av --delete \
-  rsync://rsync.upstream.cloudlinux.com/SWNG/ \
-  /var/www/mirrors/swng/
+ExecStart=/usr/bin/rsync -av --delete rsync://rsync.upstream.cloudlinux.com/SWNG/ /var/www/mirrors/swng/
 StandardOutput=append:/var/log/swng-mirror.log
 StandardError=append:/var/log/swng-mirror.log
 ```
-Create /etc/systemd/system/swng-mirror.timer:
+
+Create `/etc/systemd/system/swng-mirror.timer`:
 
 ```bash
 [Unit]
@@ -1133,6 +1306,7 @@ Persistent=true
 [Install]
 WantedBy=timers.target
 ```
+
 Enable and start the timer:
 
 ```bash
@@ -1144,23 +1318,172 @@ systemctl start swng-mirror.timer
 systemctl status swng-mirror.timer
 systemctl list-timers swng-mirror.timer
 ```
-For automation (systemd timers), see `ansible/complete-swng-rsync/README.md`.
+
+#### Step 3: Serve the mirror via Nginx (same paths as the playbook)
+
+Install Nginx with your OS package manager.
+
+```bash
+systemctl enable --now nginx
+systemctl status nginx
+```
+
+**Option A (no HTTPS): serve over HTTP only**
+
+Create `/etc/nginx/conf.d/swng-mirror.conf`:
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name mirror.example.com;
+    root /var/www/mirrors/swng;
+    index index.html;
+
+    autoindex on;
+    autoindex_exact_size off;
+    autoindex_localtime on;
+
+    access_log /var/log/nginx/swng-mirror-access.log;
+    error_log /var/log/nginx/swng-mirror-error.log;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    # Optional SWNG prefix for mixed setups
+    location = /swng {
+        return 301 /swng/;
+    }
+
+    location /swng/ {
+        alias /var/www/mirrors/swng/;
+        autoindex on;
+    }
+
+    client_max_body_size 0;
+}
+```
+
+Reload Nginx and verify:
+
+```bash
+nginx -t && systemctl reload nginx
+curl -I http://localhost/swng/ || true
+```
+
+**Option B (playbook default): Let's Encrypt HTTPS + HTTP→HTTPS redirect**
+
+Requirements:
+- `mirror.example.com` must resolve to the mirror server
+- inbound TCP `80` must be reachable during certificate issuance
+
+Obtain a certificate (standalone method, like the playbook default):
+
+```bash
+dnf install -y certbot python3-certbot-nginx
+
+systemctl stop nginx || true
+
+certbot certonly --standalone --preferred-challenges http \
+  --non-interactive --agree-tos \
+  --email admin@mirror.example.com \
+  -d mirror.example.com
+
+systemctl start nginx
+```
+
+Create `/etc/nginx/conf.d/swng-mirror.conf` (HTTP→HTTPS redirect + ACME location):
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name mirror.example.com;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/mirrors/acme;
+    }
+
+    # Normalize SWNG path (no trailing slash)
+    location = /swng {
+        return 301 https://$server_name/swng/;
+    }
+
+    location / {
+        return 301 https://$server_name$request_uri;
+    }
+}
+```
+
+Create `/etc/nginx/conf.d/swng-mirror-https.conf`:
+
+```nginx
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name mirror.example.com;
+    root /var/www/mirrors/swng;
+    index index.html;
+
+    ssl_certificate /etc/letsencrypt/live/mirror.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mirror.example.com/privkey.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    autoindex on;
+    autoindex_exact_size off;
+    autoindex_localtime on;
+
+    access_log /var/log/nginx/swng-mirror-https-access.log;
+    error_log /var/log/nginx/swng-mirror-https-error.log;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location = /swng {
+        return 301 /swng/;
+    }
+
+    location /swng/ {
+        alias /var/www/mirrors/swng/;
+        autoindex on;
+    }
+
+    client_max_body_size 0;
+}
+```
+
+Reload Nginx and verify:
+
+```bash
+nginx -t && systemctl reload nginx
+curl -I https://mirror.example.com/swng/ || true
+```
+
+For automation (systemd timers, Nginx templating, and certbot renewal), see `ansible/complete-swng-rsync/README.md`.
 
 
 ## 3. Specific-version-rsync: Mirroring Specific SWNG Versions with RSync (Recommended)
 
-This example shows how to mirror a specific CloudLinux version (10) from SWNG using RSync with automated updates via systemd timers.
+This manual example mirrors what `ansible/specific-version-rsync(Recomended)` does in its **default** mode:
+- CloudLinux version mirrored: **10** (8/9 support is coming soon)
+- Mirror path: `/var/www/mirrors/swng/10`
+- RSync source: `rsync://rsync.upstream.cloudlinux.com/SWNG/10/`
+- systemd units: `swng-10-mirror.service` + `swng-10-mirror.timer` (every 6 hours)
+- Nginx serving the mirror under `/swng/` so that version content is available at `/swng/10/` (with optional Let's Encrypt HTTPS)
 
 #### Step 1: Prepare Storage and Initial Sync
-Check available disk space
+
 ```bash
 df -h
-```
-Create mirror directory
-```bash
 mkdir -p /var/www/mirrors/swng/10
 
-# Perform initial sync (this may take several hours)
 rsync -av --delete \
   --progress \
   --log-file=/var/log/swng-10-mirror.log \
@@ -1168,7 +1491,8 @@ rsync -av --delete \
   /var/www/mirrors/swng/10/
 ```
 
-#### Step 2: Create Systemd Service and Timer for Automated Updates
+#### Step 2: Create systemd service + timer for automated updates
+
 Create `/etc/systemd/system/swng-10-mirror.service`:
 
 ```bash
@@ -1178,9 +1502,7 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/rsync -av --delete \
-  rsync://rsync.upstream.cloudlinux.com/SWNG/10/ \
-  /var/www/mirrors/swng/10/
+ExecStart=/usr/bin/rsync -av --delete rsync://rsync.upstream.cloudlinux.com/SWNG/10/ /var/www/mirrors/swng/10/
 StandardOutput=append:/var/log/swng-10-mirror.log
 StandardError=append:/var/log/swng-10-mirror.log
 ```
@@ -1207,12 +1529,155 @@ systemctl daemon-reload
 systemctl enable swng-10-mirror.timer
 systemctl start swng-10-mirror.timer
 
-# Check timer status
 systemctl status swng-10-mirror.timer
 systemctl list-timers swng-10-mirror.timer
 ```
 
-For automation (systemd timers), see `ansible/specific-version-rsync(Recomended)/README.md`.
+#### Step 3: Serve the mirror via Nginx (same paths as the playbook)
+
+Install and start Nginx:
+
+```bash
+systemctl enable --now nginx
+systemctl status nginx
+```
+
+**Option A (no HTTPS): serve over HTTP only**
+
+Create `/etc/nginx/conf.d/swng-mirror.conf`:
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name _;
+    root /var/www/mirrors;
+    index index.html;
+
+    autoindex on;
+    autoindex_exact_size off;
+    autoindex_localtime on;
+
+    access_log /var/log/nginx/swng-10-mirror-access.log;
+    error_log /var/log/nginx/swng-10-mirror-error.log;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    # Optional SWNG prefix for mixed setups
+    location = /swng {
+        return 301 /swng/;
+    }
+
+    location /swng/ {
+        alias /var/www/mirrors/swng/;
+        autoindex on;
+    }
+
+    client_max_body_size 0;
+}
+```
+
+Reload Nginx and verify:
+
+```bash
+nginx -t && systemctl reload nginx
+curl -I http://localhost/swng/10/ || true
+```
+
+**Option B (playbook default): Let's Encrypt HTTPS + HTTP→HTTPS redirect**
+
+Requirements:
+- `mirror.example.com` must resolve to the mirror server
+- inbound TCP `80` must be reachable during certificate issuance
+
+```bash
+dnf install -y certbot python3-certbot-nginx
+systemctl stop nginx || true
+
+certbot certonly --standalone --preferred-challenges http \
+  --non-interactive --agree-tos \
+  --email admin@mirror.example.com \
+  -d mirror.example.com
+
+systemctl start nginx
+```
+
+Create `/etc/nginx/conf.d/swng-mirror.conf` (HTTP→HTTPS redirect + ACME location):
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name mirror.example.com;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/mirrors/acme;
+    }
+
+    # Normalize SWNG path (no trailing slash)
+    location = /swng {
+        return 301 https://$server_name/swng/;
+    }
+
+    location / {
+        return 301 https://$server_name$request_uri;
+    }
+}
+```
+
+Create `/etc/nginx/conf.d/swng-mirror-https.conf`:
+
+```nginx
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name mirror.example.com;
+    root /var/www/mirrors;
+    index index.html;
+
+    ssl_certificate /etc/letsencrypt/live/mirror.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mirror.example.com/privkey.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    autoindex on;
+    autoindex_exact_size off;
+    autoindex_localtime on;
+
+    access_log /var/log/nginx/swng-10-mirror-https-access.log;
+    error_log /var/log/nginx/swng-10-mirror-https-error.log;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location = /swng {
+        return 301 /swng/;
+    }
+
+    location /swng/ {
+        alias /var/www/mirrors/swng/;
+        autoindex on;
+    }
+
+    client_max_body_size 0;
+}
+```
+
+Reload Nginx and verify:
+
+```bash
+nginx -t && systemctl reload nginx
+curl -I https://mirror.example.com/swng/10/ || true
+```
+
+For automation (systemd timers, Nginx templating, and certbot renewal), see `ansible/specific-version-rsync(Recomended)/README.md`.
 
 
 ## yum-reposync: Mirroring specific repositories with `reposync`
