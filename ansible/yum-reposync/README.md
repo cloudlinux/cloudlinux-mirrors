@@ -49,11 +49,10 @@ Default variables are defined in `defaults/main.yml`. You can customize the play
 The `swng_repos` variable defines which repositories to sync. Default configuration:
 ```yaml
 swng_repos:
-  - name: SWNG-9-x86_64
-    baseurl: https://upstream.cloudlinux.com/swng/9/x86_64/
-    enabled: true
-  - name: SWNG-8-x86_64
-    baseurl: https://upstream.cloudlinux.com/swng/8/x86_64/
+  # Currently supported: CloudLinux 10 (8/9 coming soon)
+  - name: SWNG-10-x86_64
+    baseurl: https://upstream.cloudlinux.com/swng/10/x86_64/
+    module_platform_id: platform:el10
     enabled: true
 ```
 
@@ -72,18 +71,18 @@ ansible-playbook -i inventory.ini playbook.yml \
   -e "mirror_base_path=/opt/mirrors" \
   -e "sync_interval_hours=4"
 ```
-## Sync Only CloudLinux 8 or 9 SWNG
-To synchronise only one CloudLinux 8 SWNG or 9 SWNG repository comment out or delete the unnecessary parts
-in `defaults/main.yml`.
+## Sync Only CloudLinux 10 SWNG (current support)
+
+CloudLinux 10 is supported now. CloudLinux 8/9 support is coming soon.
+
+To sync only CloudLinux 10 SWNG, keep only `SWNG-10-x86_64` enabled in `defaults/main.yml`.
 
 ```yaml
 swng_repos:
-  - name: SWNG-9-x86_64
-    baseurl: https://upstream.cloudlinux.com/swng/9/x86_64/
+  - name: SWNG-10-x86_64
+    baseurl: https://upstream.cloudlinux.com/swng/10/x86_64/
+    module_platform_id: platform:el10
     enabled: true
-  #- name: SWNG-8-x86_64
-  #  baseurl: https://upstream.cloudlinux.com/swng/8/x86_64/
-  #  enabled: true
 ```
 
 ### Custom Repository List
@@ -91,14 +90,13 @@ Add to `defaults/main.yml` with multiple repositories:
 
 ```yaml
 swng_repos:
-  - name: SWNG-9-x86_64
-    baseurl: https://upstream.cloudlinux.com/swng/9/x86_64/
+  - name: SWNG-10-x86_64
+    baseurl: https://upstream.cloudlinux.com/swng/10/x86_64/
+    module_platform_id: platform:el10
     enabled: true
-  - name: SWNG-8-x86_64
-    baseurl: https://upstream.cloudlinux.com/swng/8/x86_64/
-    enabled: true
-  - name: SWNG-9-aarch64
-    baseurl: https://upstream.cloudlinux.com/swng/9/aarch64/
+  - name: SWNG-10-aarch64
+    baseurl: https://upstream.cloudlinux.com/swng/10/aarch64/
+    module_platform_id: platform:el10
     enabled: true
 sync_interval_hours: 4
 timer_schedule: "*-*-* 00,04,08,12,16,20:00:00"
@@ -143,11 +141,9 @@ certbot_cron_schedule:
 # List of repositories to sync
 # Source: https://upstream.cloudlinux.com/swng/
 swng_repos:
-  - name: SWNG-9-x86_64
-    baseurl: https://upstream.cloudlinux.com/swng/9/x86_64/
-    enabled: true
-  - name: SWNG-8-x86_64
-    baseurl: https://upstream.cloudlinux.com/swng/8/x86_64/
+  # Currently supported: CloudLinux 10 (8/9 coming soon)
+  - name: SWNG-10-x86_64
+    baseurl: https://upstream.cloudlinux.com/swng/10/x86_64/
     enabled: true
 ```
 Run with:

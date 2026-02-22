@@ -1704,16 +1704,9 @@ Create `/etc/yum.repos.d/swng-upstream.repo`:
 # SWNG Repository Configuration for upstream.cloudlinux.com
 # Source: https://upstream.cloudlinux.com/swng/
 
-[SWNG-9-x86_64]
-name=SWNG-9-x86_64
-baseurl=https://upstream.cloudlinux.com/swng/9/
-enabled=1
-skip_if_unavailable=1
-gpgcheck=0
-
-[SWNG-8-x86_64]
-name=SWNG-8-x86_64
-baseurl=https://upstream.cloudlinux.com/swng/8/
+[SWNG-10-x86_64]
+name=SWNG-10-x86_64
+baseurl=https://upstream.cloudlinux.com/swng/10/x86_64/
 enabled=1
 skip_if_unavailable=1
 gpgcheck=0
@@ -1728,13 +1721,11 @@ Notes:
 ```bash
 mkdir -p /var/www/mirrors/swng
 
-# Initial sync of enabled repos (run one by one)
-reposync -p /var/www/mirrors/swng/ --repo SWNG-9-x86_64 --setopt=module_platform_id=platform:el9
-reposync -p /var/www/mirrors/swng/ --repo SWNG-8-x86_64 --setopt=module_platform_id=platform:el8
+# Initial sync of enabled repos
+reposync -p /var/www/mirrors/swng/ --repo SWNG-10-x86_64 --setopt=module_platform_id=platform:el10
 
 # Generate metadata (required)
-createrepo /var/www/mirrors/swng/SWNG-9-x86_64/
-createrepo /var/www/mirrors/swng/SWNG-8-x86_64/
+createrepo /var/www/mirrors/swng/SWNG-10-x86_64/
 ```
 
 ### Step 4: Create systemd service + timer
@@ -1748,10 +1739,8 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/reposync -p /var/www/mirrors/swng/ --repo SWNG-9-x86_64 --setopt=module_platform_id=platform:el9
-ExecStartPost=/usr/bin/createrepo /var/www/mirrors/swng/SWNG-9-x86_64/
-ExecStart=/usr/bin/reposync -p /var/www/mirrors/swng/ --repo SWNG-8-x86_64 --setopt=module_platform_id=platform:el8
-ExecStartPost=/usr/bin/createrepo /var/www/mirrors/swng/SWNG-8-x86_64/
+ExecStart=/usr/bin/reposync -p /var/www/mirrors/swng/ --repo SWNG-10-x86_64 --setopt=module_platform_id=platform:el10
+ExecStartPost=/usr/bin/createrepo /var/www/mirrors/swng/SWNG-10-x86_64/
 StandardOutput=append:/var/log/swng-reposync.log
 StandardError=append:/var/log/swng-reposync.log
 ```
