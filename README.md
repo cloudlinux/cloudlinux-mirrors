@@ -1680,251 +1680,64 @@ curl -I https://mirror.example.com/swng/10/ || true
 For automation (systemd timers, Nginx templating, and certbot renewal), see `ansible/specific-version-rsync(Recomended)/README.md`.
 
 
-## yum-reposync: Mirroring specific repositories with `reposync`
-### Current and actively maintained CloudLinux versions: 10 (8/9 coming soon)
+## yum-reposync: Mirroring SWNG repositories with `reposync`
 
-For YUM/DNF-based mirroring, you can use `reposync` to mirror specific repository paths:
+This manual example mirrors what `ansible/yum-reposync` does:
+- Mirrors **selected SWNG repositories** using `reposync` (yum-utils)
+- Generates metadata with `createrepo`
+- Uses a systemd service/timer named `swng-reposync`
+- Serves the mirror via Nginx (and optionally Let's Encrypt HTTPS)
 
-#### Step 1: Install Required Tools
+### Step 1: Install required tools
 
-```bash
-dnf -y install dnf-plugins-core createrepo_c || yum -y install yum-utils createrepo
-```
-
-#### Step 2: Create Repository Configuration for Specific Repositories
-
-Create `/etc/yum.repos.d/cloudlinux-upstream.repo` with specific repository paths:
-
-**Example: CloudLinux 10 BaseOS x86_64**
-
-```ini
-[CloudLinux-10-x86_64]
-name=CloudLinux 10 BaseOS x86_64
-baseurl=https://upstream.cloudlinux.com/cloudlinux/10/BaseOS/x86_64/os/
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
-```
-
-**Example: CloudLinux 10 AppStream x86_64**
-
-```ini
-[CloudLinux-10-x86_64-AppStream]
-name=CloudLinux 10 AppStream x86_64
-baseurl=https://upstream.cloudlinux.com/cloudlinux/10/AppStream/x86_64/os/
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
-```
-
-**Example: Multiple Repositories (CloudLinux 10)**
-
-```ini
-[CloudLinux-10-x86_64-BaseOS]
-name=CloudLinux 10 BaseOS x86_64
-baseurl=https://upstream.cloudlinux.com/cloudlinux/10/BaseOS/x86_64/os/
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
-
-[CloudLinux-10-x86_64-AppStream]
-name=CloudLinux 10 AppStream x86_64
-baseurl=https://upstream.cloudlinux.com/cloudlinux/10/AppStream/x86_64/os/
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
-
-[CloudLinux-10-x86_64-Extras]
-name=CloudLinux 10 Extras x86_64
-baseurl=https://upstream.cloudlinux.com/cloudlinux/10/extras/x86_64/os/
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
-```
-
-#### Step 3: Sync Specific Repository
+The playbook installs `yum-utils` and `createrepo` (package names may vary by distro).
 
 ```bash
-# Create destination directory
-mkdir -p /var/www/mirrors/cloudlinux
-
-# Sync CloudLinux 10 BaseOS repository
-reposync -p /var/www/mirrors/cloudlinux/ -r CloudLinux-10-x86_64
-
-# Sync multiple repositories
-reposync -p /var/www/mirrors/cloudlinux/ -r CloudLinux-10-x86_64-BaseOS -r CloudLinux-10-x86_64-AppStream
-
-# Update repository metadata after sync
-createrepo_c /var/www/mirrors/cloudlinux/CloudLinux-10-x86_64/ || createrepo /var/www/mirrors/cloudlinux/CloudLinux-10-x86_64/
+dnf -y install yum-utils createrepo || yum -y install yum-utils createrepo
 ```
 
-#### Step 4: Browse Available Repositories
-
-You can explore available repository paths using curl:
-
-```bash
-# List CloudLinux versions
-curl https://upstream.cloudlinux.com/cloudlinux/
-
-# List CloudLinux 10 repositories
-curl https://upstream.cloudlinux.com/cloudlinux/10/
-
-# List BaseOS architectures
-curl https://upstream.cloudlinux.com/cloudlinux/10/BaseOS/
-
-# List specific repository contents
-curl https://upstream.cloudlinux.com/cloudlinux/10/BaseOS/x86_64/os/
-```
-
-### Using RSync for Specific Repository Paths
-
-You can clone specific repository paths using RSync by specifying the path after the module name:
-
-#### Basic RSync for Specific Paths
-
-```bash
-# Clone CloudLinux 10 BaseOS repository
-rsync -av --delete \
-  rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/10/BaseOS/ \
-  /var/www/mirrors/cloudlinux/10/BaseOS/
-
-# Clone CloudLinux 10 BaseOS x86_64 only
-rsync -av --delete \
-  rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/10/BaseOS/x86_64/ \
-  /var/www/mirrors/cloudlinux/10/BaseOS/x86_64/
-```
-
-#### Explore Available RSync Paths
-
-You can list available paths using RSync:
-
-```bash
-# List available modules
-rsync rsync://rsync.upstream.cloudlinux.com/
-
-# List CloudLinux repository structure
-rsync rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/
-
-# List CloudLinux 10 structure
-rsync rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/10/
-
-# List BaseOS structure
-rsync rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/10/BaseOS/
-
-# Example output:
-# drwxr-xr-x             28 2025/11/14 15:00:10 .
-# drwxr-xr-x             33 2025/11/14 15:00:14 x86_64
-```
-
-#### Complete Example: Cloning CloudLinux 10 BaseOS
-
-```bash
-# Create destination directory
-mkdir -p /var/www/mirrors/cloudlinux/10/BaseOS
-
-# Clone the repository
-rsync -av --delete \
-  --progress \
-  --log-file=/var/log/cloudlinux-10-baseos-sync.log \
-  rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/10/BaseOS/ \
-  /var/www/mirrors/cloudlinux/10/BaseOS/
-
-# Verify the sync
-ls -lh /var/www/mirrors/cloudlinux/10/BaseOS/
-```
-
-#### Automated Sync for Specific Repositories
-
-Create a systemd service for automated syncing of specific repositories:
-
-**`/etc/systemd/system/cloudlinux-10-baseos-sync.service`:**
-
-```ini
-[Unit]
-Description=Sync CloudLinux 10 BaseOS Repository
-After=network.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/rsync -av --delete rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/10/BaseOS/ /var/www/mirrors/cloudlinux/10/BaseOS/
-StandardOutput=append:/var/log/cloudlinux-10-baseos-sync.log
-StandardError=append:/var/log/cloudlinux-10-baseos-sync.log
-```
-
-**`/etc/systemd/system/cloudlinux-10-baseos-sync.timer`:**
-
-```ini
-[Unit]
-Description=Run CloudLinux 10 BaseOS Sync Every 6 Hours
-Requires=cloudlinux-10-baseos-sync.service
-
-[Timer]
-OnCalendar=*-*-* 00,06,12,18:00:00
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-```
-
-Enable and start:
-
-```bash
-systemctl enable cloudlinux-10-baseos-sync.timer
-systemctl start cloudlinux-10-baseos-sync.timer
-```
-
-### Mirroring specific SWNG repositories with `reposync`
-
-This example shows how to use `reposync` (from `yum-utils`) to mirror specific SWNG repositories for specific CloudLinux versions.
-
-#### Step 1: Install Required Tools
-
-```bash
-dnf -y install dnf-plugins-core createrepo_c || yum -y install yum-utils createrepo
-```
-
-#### Step 2: Create Repository Configuration for SWNG
+### Step 2: Create SWNG upstream repo config
 
 Create `/etc/yum.repos.d/swng-upstream.repo`:
 
-**Example: CloudLinux 10 SWNG x86_64**
-
 ```ini
-[SWNG-10-x86_64]
-name=CloudLinux 10 SWNG x86_64 (Main Operational Repository)
-baseurl=https://upstream.cloudlinux.com/swng/10/x86_64/
+# SWNG Repository Configuration for upstream.cloudlinux.com
+# Source: https://upstream.cloudlinux.com/swng/
+
+[SWNG-9-x86_64]
+name=SWNG-9-x86_64
+baseurl=https://upstream.cloudlinux.com/swng/9/
 enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
+skip_if_unavailable=1
+gpgcheck=0
+
+[SWNG-8-x86_64]
+name=SWNG-8-x86_64
+baseurl=https://upstream.cloudlinux.com/swng/8/
+enabled=1
+skip_if_unavailable=1
+gpgcheck=0
 ```
 
-**Note:** The SWNG repository structure at `https://upstream.cloudlinux.com/swng/` contains version directories (10/, etc.). Each version directory contains architecture-specific subdirectories (x86_64/, aarch64/, etc.) with the actual repository content.
+Notes:
+- The playbook disables GPG checks by default (`gpgcheck=0`). If you want to enable GPG verification, set `gpgcheck=1` and configure the appropriate key.
+- For modular content, `reposync` may require `module_platform_id` (the playbook uses `--setopt=module_platform_id=...` when configured).
 
-**Example: Multiple SWNG Repositories (CloudLinux 10)**
-
-```ini
-[SWNG-10-x86_64]
-name=CloudLinux 10 SWNG x86_64
-baseurl=https://upstream.cloudlinux.com/swng/10/x86_64/
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-cloudlinux
-```
-
-#### Step 3: Sync Specific SWNG Repository
+### Step 3: Create destination directory and run initial sync
 
 ```bash
-# Create destination directory
 mkdir -p /var/www/mirrors/swng
 
-# Sync CloudLinux 10 SWNG repository
-reposync -p /var/www/mirrors/swng/ -r SWNG-10-x86_64
+# Initial sync of enabled repos (run one by one)
+reposync -p /var/www/mirrors/swng/ --repo SWNG-9-x86_64 --setopt=module_platform_id=platform:el9
+reposync -p /var/www/mirrors/swng/ --repo SWNG-8-x86_64 --setopt=module_platform_id=platform:el8
 
-# Update repository metadata after sync
-createrepo_c /var/www/mirrors/swng/SWNG-10-x86_64/ || createrepo /var/www/mirrors/swng/SWNG-10-x86_64/
+# Generate metadata (required)
+createrepo /var/www/mirrors/swng/SWNG-9-x86_64/
+createrepo /var/www/mirrors/swng/SWNG-8-x86_64/
 ```
 
-#### Step 4: Create Automated Sync with Systemd Timer
+### Step 4: Create systemd service + timer
 
 Create `/etc/systemd/system/swng-reposync.service`:
 
@@ -1935,8 +1748,10 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/reposync -p /var/www/mirrors/swng/ -r SWNG-10-x86_64
-ExecStartPost=/bin/bash -c '/usr/bin/createrepo_c /var/www/mirrors/swng/SWNG-10-x86_64/ || /usr/bin/createrepo /var/www/mirrors/swng/SWNG-10-x86_64/'
+ExecStart=/usr/bin/reposync -p /var/www/mirrors/swng/ --repo SWNG-9-x86_64 --setopt=module_platform_id=platform:el9
+ExecStartPost=/usr/bin/createrepo /var/www/mirrors/swng/SWNG-9-x86_64/
+ExecStart=/usr/bin/reposync -p /var/www/mirrors/swng/ --repo SWNG-8-x86_64 --setopt=module_platform_id=platform:el8
+ExecStartPost=/usr/bin/createrepo /var/www/mirrors/swng/SWNG-8-x86_64/
 StandardOutput=append:/var/log/swng-reposync.log
 StandardError=append:/var/log/swng-reposync.log
 ```
@@ -1962,4 +1777,61 @@ Enable and start:
 systemctl daemon-reload
 systemctl enable swng-reposync.timer
 systemctl start swng-reposync.timer
+systemctl status swng-reposync.timer
+systemctl list-timers swng-reposync.timer
 ```
+
+### Step 5: Serve the mirror via Nginx (same paths as the playbook)
+
+Install and start Nginx:
+
+```bash
+systemctl enable --now nginx
+systemctl status nginx
+```
+
+Create `/etc/nginx/conf.d/swng-reposync-mirror.conf`:
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name mirror.example.com;
+    root /var/www/mirrors/swng;
+    index index.html;
+
+    autoindex on;
+    autoindex_exact_size off;
+    autoindex_localtime on;
+
+    access_log /var/log/nginx/swng-reposync-mirror-access.log;
+    error_log /var/log/nginx/swng-reposync-mirror-error.log;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    # Optional SWNG prefix for mixed setups
+    location /swng/ {
+        alias /var/www/mirrors/swng/;
+        autoindex on;
+    }
+
+    location = /swng {
+        return 301 /swng/;
+    }
+
+    client_max_body_size 0;
+}
+```
+
+Reload Nginx and verify:
+
+```bash
+nginx -t && systemctl reload nginx
+curl -I http://localhost/swng/ || true
+```
+
+Optional HTTPS (playbook default):
+- The playbook can obtain a Let's Encrypt certificate using certbot and add `swng-reposync-mirror-https.conf`.
+- For the full automation (including certbot and renewal), see `ansible/yum-reposync/README.md`.
