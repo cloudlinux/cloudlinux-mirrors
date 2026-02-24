@@ -212,7 +212,7 @@ This repository provides multiple approaches to set up and maintain mirrors:
 
 1. **Ansible Playbooks**: see `ansible/README.md` and individual playbook README files.
 2. **Docker Containers**: see `docker/README.md` and individual setup README files.
-3. **Manual Setup**: see `manual/README.md`.
+3. **Manual Setup**: see `manual install/README.md`.
 
 Choose the approach that best fits your infrastructure and requirements. All methods support the same mirroring capabilities with different levels of automation and deployment flexibility.
 
