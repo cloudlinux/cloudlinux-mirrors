@@ -130,7 +130,7 @@ service_name: swng-reposync
 # SSL/Certbot configuration
 mirror_domain: "{{ inventory_hostname }}"
 certbot_email: "admin@{{ mirror_domain }}"
-certbot_authenticator: standalone  # Options: standalone, webroot
+certbot_authenticator: webroot  # Options: standalone, webroot
 certbot_webroot: "{{ mirror_base_path }}/acme"
 certbot_enabled: true
 certbot_cron_enabled: true
@@ -144,6 +144,7 @@ swng_repos:
   # Currently supported: CloudLinux 10 (8/9 coming soon)
   - name: SWNG-10-x86_64
     baseurl: https://upstream.cloudlinux.com/swng/10/x86_64/
+    module_platform_id: platform:el10
     enabled: true
 ```
 Run with:

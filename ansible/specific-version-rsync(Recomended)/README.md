@@ -82,7 +82,7 @@ service_name: "swng-{{ cloudlinux_version }}-mirror"
 # SSL/Certbot configuration
 mirror_domain: "{{ inventory_hostname }}"
 certbot_email: "admin@{{ mirror_domain }}"
-certbot_authenticator: standalone  # Options: standalone, webroot
+certbot_authenticator: webroot  # Options: standalone, webroot
 certbot_webroot: "{{ mirror_base_path }}/acme"
 certbot_enabled: true
 certbot_cron_enabled: true

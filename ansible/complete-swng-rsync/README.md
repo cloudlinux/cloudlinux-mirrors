@@ -25,7 +25,7 @@ Default variables are defined in `defaults/main.yml`. You can customize the play
 - `mirror_domain`: Domain name for SSL certificate (default: `{{ inventory_hostname }}`)
 - `certbot_email`: Email for Let's Encrypt certificate (default: `admin@{{ mirror_domain }}`)
 - `certbot_enabled`: Enable SSL certificate setup (default: `true`)
-- `certbot_authenticator`: Certbot authentication method (default: `standalone`, options: `standalone`, `webroot`)
+- `certbot_authenticator`: Certbot authentication method (default: `webroot`, options: `standalone`, `webroot`)
 
 ## What the Playbook Does
 
@@ -86,7 +86,7 @@ timer_schedule: "*-*-* 00,04,08,12,16,20:00:00"
 # SSL/Certbot configuration
 mirror_domain: "{{ inventory_hostname }}"
 certbot_email: "admin@{{ mirror_domain }}"
-certbot_authenticator: standalone  # Options: standalone, webroot
+certbot_authenticator: webroot  # Options: standalone, webroot
 certbot_webroot: "{{ mirror_base_path }}/acme"
 certbot_enabled: true
 certbot_cron_enabled: true
