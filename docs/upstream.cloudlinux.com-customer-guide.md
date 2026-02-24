@@ -21,7 +21,12 @@ This article is for customers and explains why the old mirror system will not su
 
 ## Summary
 
-New CloudLinux versions are moving to the new mirror service and open HTTPS mirrors. The legacy mirror system (custom SSL/XMLRPC) will not support newer OS and package versions. Customers should reconfigure their mirrors to the new standard HTTPS layout and endpoint.
+New CloudLinux versions are moving to the new mirror service and open HTTPS mirrors. The legacy mirror system (custom SSL/XMLRPC) will not support newer OS and package versions.Customers should reconfigure their mirrors to the new standard HTTPS layout and endpoint.
+
+**Currently, only CloudLinux 10 is supported**, and support for older versions will be enabled gradually.
+
+For customer-managed mirrors, the migration means **adding a new HTTPS mirror** (or **replacing** the legacy mirror endpoint) rather than “reconfiguring”. In most cases you can **reuse existing storage** and just adjust the mirror layout/paths and transport (open HTTPS).
+
 
 ## What is changing
 

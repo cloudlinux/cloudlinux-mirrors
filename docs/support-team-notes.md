@@ -12,8 +12,9 @@ Related docs:
 - **Open HTTPS mirrors**: mirrors are accessible via standard HTTPS (no custom SSL or XMLRPC transport).
 - **Partial mirrors supported**: customers can mirror only specific OS versions and still be served by the mirror service.
 - **Autonomous installs/conversions**: customers can sync `repo.cloudlinux.com` content freely if they need isolated environments.
+- **Important**: Starting with `Cloud Linux 10`, old mirrors will not work. If you are using an old mirror and want to use CL10, you will need to replace the mirror with a new one.
 
-## Why we are switching (customer-friendly)
+## Why we are switching
 
 Key message to customers:
 - License validation is performed **inside CloudLinux OS**, so repositories and mirrors do not need mirror-side authentication.
@@ -40,20 +41,20 @@ Key message to customers:
 ## Quick answers (FAQ)
 
 ### “Do we need to do anything on the servers?”
-
-- **Most customers**: no manual change on the client, it transitions via package updates (see above).
-- **Customers with their own mirrors**: yes, they must provide an **open HTTPS mirror** compatible with the new flow and ask Support to add it to mirror rotation (public or private scoped).
+ - **Clients without their own mirrors (Cloud Linux 10)**: no, no manual changes are required; the transition is carried out by updating the packages (see above).
+ - **Customers with their own mirrors**: yes, when migrating to Cloud Linux 10, they must provide a new open HTTPS mirror compatible with the new stream and ask support to add it to the mirror rotation (public or private).
 
 ### “Can we keep using the old mirror?”
 
-- Older systems/tools may continue to use `cln-mirrors`.
-- Newer CloudLinux versions/tooling will use `cl-mirrors`. If a customer mirror only supports the legacy flow, updated clients may stop using it.
+- Currently, older systems (CL8, CL9) can continue to use `cln-mirrors`.
+- Newer versions starting with CloudLinux 10 will use `cl-mirrors`. If a client's mirror only supports the outdated stream, updated clients should stop using it.
 
 ### “Why can’t we use the same domain for both old and new mirror?”
 
 - The legacy setup typically requires a **custom SSL certificate** bound to the customer domain for the XMLRPC flow.
 - The new setup requires a normal **public CA certificate** for standard HTTPS.
 - These TLS expectations conflict for a single endpoint, so customers should treat legacy and new mirrors as separate endpoints.
+- Remember, one domain - one endpoint. 
 
 ### “Do we need to mirror everything?”
 
@@ -107,4 +108,27 @@ The exact package versions that trigger the transition will be added later:
 
 Escalate with collected outputs if:
 - There is a suspected mirrorservice outage or widespread mirrorlist anomalies.
+- Need to add a mirror to the rotation
+- The client has synchronisation issues
+- The customer wants us to set everything up for them or does not want to set up mirror themselves.
 
+
+https://github.com/shuiscloud/cloudlinux-mirrors/blob/REAIT-213/docs/support-team-notes.md
+
+What is changing > дописать, что СТАРЫЕ ЗЕРКАЛА НЕ БУДУТ РАБОТАТЬ, ЕСЛИ У ВАС СТАРОЕ ЗЕРКАЛО, А ХОТИТЕ КЛ 10 ЕБОШ СТАВИТЬ НОВОЕ
+
+
+ Customers with their own mirrors: yes, they must provide an open HTTPS mirror compatible with the new flow and ask Support to add it to mirror rotation (public or private scoped).
+“Do we need to do anything on the servers?”
+Most customers: no manual change on the client, it transitions via package updates (see above).
+Customers with their own mirrors: yes, they must provide an open HTTPS mirror compatible with the new flow and ask Support to add it to mirror rotation (public or private scoped).
+“Can we keep using the old mirror?”
+Older systems/tools may continue to use cln-mirrors.
+Newer CloudLinux versions/tooling will use cl-mirrors. If a customer mirror only supports the legacy flow, updated clients may stop using it.
+“Why can’t we use the same domain for both old and new mirror?”
+The legacy setup typically requires a custom SSL certificate bound to the customer domain for the XMLRPC flow.
+The new setup requires a normal public CA certificate for standard HTTPS.
+These TLS expectations conflict for a single endpoint, so customers should treat legacy and new mirrors as separate endpoints.
+
+весь этот блок чуть прозрачнее, ТОЛЬКО ВТОРОЙ СЕРВЕР или ТОЛЬКО ЗАМЕНИТЬ ПЕРВЫЙ
+одно доменное имя не может использоваться для двух типов

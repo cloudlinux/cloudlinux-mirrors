@@ -30,7 +30,7 @@ This document is for internal use by REA&IT and related teams. It summarizes the
 
 ## Key Terms (System Glossary)
 
-- **SWNG mirrors**: Mirrors of the SWNG repository used for regular operational updates.
+- **SWNG repository (SWNG)**: The **main operational repository** for CloudLinux systems. It contains the packages used for day-to-day operation and receives regular security, bugfix, and feature updates.
 - **XMLRPC mirrors (legacy)**: Old mirror setup using yum-rhn-plugin/XMLRPC with custom SSL certificates bound to customer domains.
 - **Non-XMLRPC mirrors (new)**: New mirror setup using standard HTTPS with public certificates (no XMLRPC).
 - **`repo.cloudlinux.com`**: Main public repository for conversion/installation assets and legacy content; also serves mirrorlist endpoints.
@@ -93,13 +93,14 @@ Use these to quickly determine which flow a system is on.
   - `/etc/sysconfig/rhn/up2date` contains `mirrorURL=` pointing to legacy mirrorlist / XMLRPC flow.
   - Old mirrorlist endpoint is in use: `.../mirrorlists/cln-mirrors`
 - **New indicators**
-  - `.repo` files contain `mirrorlist=https://repo.cloudlinux.com/cloudlinux/mirrorlists/cl-mirrors`
+  - `.repo` files (typically `/etc/yum.repos.d/cloudlinux.repo`) contain `mirrorlist=https://repo.cloudlinux.com/cloudlinux/mirrorlists/cl-mirrors`
   - Repository URLs are plain HTTPS and browsable (no XMLRPC transport)
 
 Quick commands:
 
 ```bash
 # New flow: look for cl-mirrors in dnf/yum repo configs
+grep -n "mirrorlists/cl-mirrors" /etc/yum.repos.d/cloudlinux.repo 2>/dev/null || true
 grep -R "mirrorlists/cl-mirrors" /etc/yum.repos.d/ 2>/dev/null || true
 
 # Legacy flow: look for mirrorURL (XMLRPC legacy)
@@ -151,6 +152,8 @@ curl -sS "https://repo.cloudlinux.com/cloudlinux/mirrorlists/cln-mirrors" | head
 
 ### Mirror health (recommended checks)
 
+Applies to the **new mirror system only**. Legacy XMLRPC/custom-SSL mirrors follow a different contract and are not covered by these checks.
+
 The exact health-check implementation is owned by the mirrorservice, but mirrors should be expected to pass at least these checks:
 
 - **TLS**: valid public CA certificate, no expiry/mismatch.
@@ -196,6 +199,7 @@ The exact health-check implementation is owned by the mirrorservice, but mirrors
 ## Transition Overview (Old to New Mirrors)
 
 The new mirroring system is gradually replacing the old one.
+The new mirroring flow currently start with **CloudLinux 10**; support for older versions will be enabled gradually.
 
 **What is changing:**
 - **Non-XMLRPC mirrors** replace XMLRPC mirrors, so customers can fully set up and control mirrors.
