@@ -10,7 +10,7 @@ echo "$(date): Starting SWNG mirror sync with reposync" >> "$LOG_FILE"
 # Build reposync command
 REPOSYNC_CMD="reposync -p $MIRROR_PATH/"
 for repo in $REPOS; do
-  REPOSYNC_CMD="$REPOSYNC_CMD -r $repo"
+  REPOSYNC_CMD="$REPOSYNC_CMD --repo $repo"
 done
 
 # Run reposync

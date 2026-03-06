@@ -1,34 +1,26 @@
 # SWNG Mirror with yum-reposync - Ansible Playbook
-
 This Ansible playbook sets up a local mirror of SWNG repositories using `yum-reposync` (reposync) with automated updates via systemd timers.
+
+## Differences from RSync Method
+
+- **yum-reposync**: Uses YUM repository configuration, better for selective repository mirroring
+- **RSync**: More efficient for complete mirroring, better for bandwidth usage
+- Choose based on your needs: selective repos (yum-reposync) vs complete mirror (RSync)
 
 ## Prerequisites
 
 - Ansible 2.9 or later
 - Target server(s) with:
+  - OS almalinux 9 or 10
   - CloudLinux or RHEL/CentOS 7/8/9
   - Sufficient disk space (varies by repositories selected)
   - Root or sudo access
   - Network access to `upstream.cloudlinux.com`
   - Systemd support
 
-## Inventory Configuration
-
-Edit `inventory.ini` to specify your mirror server(s):
-
-```ini
-[mirror_servers]
-mirror-server-01 ansible_host=192.168.1.100
-mirror-server-02 ansible_host=192.168.1.101
-
-[mirror_servers:vars]
-ansible_user=root
-ansible_ssh_private_key_file=~/.ssh/id_rsa
-```
-
 ## Variables
 
-Key variables you can customize:
+Default variables are defined in `defaults/main.yml`. You can customize the playbook by overriding variables:
 
 - `mirror_base_path`: Base path for mirrors (default: `/var/www/mirrors`)
 - `swng_mirror_path`: SWNG mirror directory (default: `/var/www/mirrors/swng`)
@@ -37,17 +29,30 @@ Key variables you can customize:
 - `timer_schedule`: Systemd timer schedule (default: `*-*-* 00,06,12,18:00:00`)
 - `swng_repos`: List of repositories to sync (see example below)
 
+## What the Playbook Does
+
+1. Checks available disk space
+2. Installs `yum-utils` and `createrepo` packages
+3. Creates mirror directory structure
+4. Creates YUM repository configuration file (`/etc/yum.repos.d/swng-upstream.repo`)
+5. Imports CloudLinux GPG key
+6. Performs initial repository sync using `reposync`
+7. Updates repository metadata using `createrepo`
+8. Creates systemd service for automated syncing
+9. Creates systemd timer for scheduled updates
+10. Enables and starts the timer
+11. Installs and configures Nginx web server
+12. Enables and starts Nginx to serve the mirror
+
 ## Repository Configuration
 
 The `swng_repos` variable defines which repositories to sync. Default configuration:
-
 ```yaml
 swng_repos:
-  - name: SWNG-9-x86_64
-    baseurl: https://upstream.cloudlinux.com/swng/9/x86_64/
-    enabled: true
-  - name: SWNG-8-x86_64
-    baseurl: https://upstream.cloudlinux.com/swng/8/x86_64/
+  # Currently supported: CloudLinux 10 (8/9 coming soon)
+  - name: SWNG-10-x86_64
+    baseurl: https://upstream.cloudlinux.com/swng/10/x86_64/
+    module_platform_id: platform:el10
     enabled: true
 ```
 
@@ -66,82 +71,91 @@ ansible-playbook -i inventory.ini playbook.yml \
   -e "mirror_base_path=/opt/mirrors" \
   -e "sync_interval_hours=4"
 ```
+## Sync Only CloudLinux 10 SWNG (current support)
 
-### Sync Only CloudLinux 9 SWNG
+CloudLinux 10 is supported now. CloudLinux 8/9 support is coming soon.
 
-Create `vars.yml`:
-
-```yaml
-swng_repos:
-  - name: SWNG-9-x86_64
-    baseurl: https://upstream.cloudlinux.com/swng/9/x86_64/
-    enabled: true
-```
-
-Run with:
-
-```bash
-ansible-playbook -i inventory.ini playbook.yml -e @vars.yml
-```
-
-### Sync Only CloudLinux 8 SWNG
-
-Create `vars.yml`:
+To sync only CloudLinux 10 SWNG, keep only `SWNG-10-x86_64` enabled in `defaults/main.yml`.
 
 ```yaml
 swng_repos:
-  - name: SWNG-8-x86_64
-    baseurl: https://upstream.cloudlinux.com/swng/8/x86_64/
+  - name: SWNG-10-x86_64
+    baseurl: https://upstream.cloudlinux.com/swng/10/x86_64/
+    module_platform_id: platform:el10
     enabled: true
-```
-
-Run with:
-
-```bash
-ansible-playbook -i inventory.ini playbook.yml -e @vars.yml
 ```
 
 ### Custom Repository List
-
-Create `vars.yml` with multiple repositories:
+Add to `defaults/main.yml` with multiple repositories:
 
 ```yaml
 swng_repos:
-  - name: SWNG-9-x86_64
-    baseurl: https://upstream.cloudlinux.com/swng/9/x86_64/
+  - name: SWNG-10-x86_64
+    baseurl: https://upstream.cloudlinux.com/swng/10/x86_64/
+    module_platform_id: platform:el10
     enabled: true
-  - name: SWNG-8-x86_64
-    baseurl: https://upstream.cloudlinux.com/swng/8/x86_64/
-    enabled: true
-  - name: SWNG-9-aarch64
-    baseurl: https://upstream.cloudlinux.com/swng/9/aarch64/
+  - name: SWNG-10-aarch64
+    baseurl: https://upstream.cloudlinux.com/swng/10/aarch64/
+    module_platform_id: platform:el10
     enabled: true
 sync_interval_hours: 4
 timer_schedule: "*-*-* 00,04,08,12,16,20:00:00"
 ```
+## How to install
+Edit `inventory.ini` to specify your mirror server(s):
 
-Run with:
+```ini
+[mirror_servers]
+mirror-server-01 ansible_host=192.168.1.100
+mirror-server-02 ansible_host=192.168.1.101
 
-```bash
-ansible-playbook -i inventory.ini playbook.yml -e @vars.yml
+[mirror_servers:vars]
+ansible_user=root
+ansible_ssh_private_key_file=~/.ssh/id_rsa
 ```
+Edit the `defaults/main.yml` if necessary
+```yaml
+# Default variables for SWNG Mirror with yum-reposync
 
-## What the Playbook Does
+# Mirror paths
+mirror_base_path: /var/www/mirrors
+swng_mirror_path: "{{ mirror_base_path }}/swng"
 
-1. Checks available disk space
-2. Installs `yum-utils` and `createrepo` packages
-3. Creates mirror directory structure
-4. Creates YUM repository configuration file (`/etc/yum.repos.d/swng-upstream.repo`)
-5. Imports CloudLinux GPG key
-6. Performs initial repository sync using `reposync`
-7. Updates repository metadata using `createrepo`
-8. Creates systemd service for automated syncing
-9. Creates systemd timer for scheduled updates
-10. Enables and starts the timer
-11. Installs and configures Nginx web server
-12. Enables and starts Nginx to serve the mirror
+# Sync/log configuration
+sync_log_file: /var/log/swng-reposync.log
+sync_interval_hours: 6
+timer_schedule: "*-*-* 00,06,12,18:00:00"
+service_name: swng-reposync
 
-## Verification
+# SSL/Certbot configuration
+mirror_domain: "{{ inventory_hostname }}"
+certbot_email: "admin@{{ mirror_domain }}"
+certbot_authenticator: webroot  # Options: standalone, webroot
+certbot_webroot: "{{ mirror_base_path }}/acme"
+certbot_enabled: true
+certbot_cron_enabled: true
+certbot_cron_schedule:
+  minute: 0
+  hour: 3
+
+# List of repositories to sync
+# Source: https://upstream.cloudlinux.com/swng/
+swng_repos:
+  # Currently supported: CloudLinux 10 (8/9 coming soon)
+  - name: SWNG-10-x86_64
+    baseurl: https://upstream.cloudlinux.com/swng/10/x86_64/
+    module_platform_id: platform:el10
+    enabled: true
+```
+Run with:
+```bash
+ansible-playbook -i inventory.ini playbook.yml
+```
+After playbook run for verification
+```bash
+ansible-playbook -i inventory.ini verify.yml
+```
+##  Manual Verification
 
 After running the playbook, verify the setup:
 
@@ -185,9 +199,3 @@ The Nginx configuration enables directory browsing, so you can navigate the repo
 - The timer will automatically sync every 6 hours by default
 - Repository metadata is automatically regenerated after each sync
 - Only repositories with `enabled: true` will be synced
-
-## Differences from RSync Method
-
-- **yum-reposync**: Uses YUM repository configuration, better for selective repository mirroring
-- **RSync**: More efficient for complete mirroring, better for bandwidth usage
-- Choose based on your needs: selective repos (yum-reposync) vs complete mirror (RSync)

@@ -9,9 +9,39 @@ This Docker setup creates a containerized SWNG repository mirror using `yum-repo
 - Network access to `upstream.cloudlinux.com`
 - CloudLinux or RHEL/CentOS base image
 
+## Resource Requirements
+
+Approximate requirements:
+- **CPU**: 2-4 cores recommended
+- **Memory**: 2-4 GB RAM recommended
+- **Disk**: 500 GB - 1+ TB recommended
+- **Network**: Stable, high-bandwidth connection
+
+### Environment Variables
+
+- `MIRROR_PATH`: Mirror destination path (default: `/var/www/mirrors/swng`)
+- `LOG_FILE`: Log file path (default: `/var/log/swng-reposync.log`)
+- `REPOS`: Space-separated list of repositories to sync (default: `SWNG-9-x86_64 SWNG-8-x86_64`)
+- `INITIAL_SYNC`: Run initial sync on startup (default: `true`)
+- `SYNC_INTERVAL_HOURS`: Sync interval in hours (default: `6`)
+- `CERTBOT_EMAIL`: Email for Let's Encrypt registration (default: `admin@example.com`)
+- `CERTBOT_DOMAIN`: Public domain for the mirror (default: `mirror.example.com`)
+
 ## Quick Start
 
 ### Using Docker Compose (Recommended)
+**Check that docker/compose installed**
+```bash
+docker --version
+docker compose version
+```
+**If docker/compose not installed**
+```bash
+dnf -y install dnf-plugins-core
+dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+dnf -y install docker-ce docker-ce-cli containerd.io docker-compose-plugin
+systemctl enable --now docker
+```
 
 1. **Create directories for data and logs:**
 
@@ -19,17 +49,35 @@ This Docker setup creates a containerized SWNG repository mirror using `yum-repo
 mkdir -p mirror-data logs
 ```
 
+If you want to store data on a separate disk (e.g. `/storage`), create them there and set env vars.
+
+Recommended: put them in a `.env` near with `docker-compose.yml`:
+
+```bash
+mkdir -p /storage/mirror-data /storage/logs
+
+cat > .env <<'EOF'
+MIRROR_DATA_ROOT=/storage/mirror-data
+LOGS_ROOT=/storage/logs
+CERTBOT_EMAIL=admin@example.com
+CERTBOT_DOMAIN=mirror.example.com
+EOF
+```
+Make sure `CERTBOT_DOMAIN` points to this server (DNS A/AAAA record) and ports 80/443 are open.
 2. **Start the container:**
 
 ```bash
-docker-compose up -d
+DOCKER_BUILDKIT=1 docker build --network=host -t swng-reposync .
+docker compose up -d --no-build
 ```
 
 3. **View logs:**
 
 ```bash
-docker-compose logs -f swng-reposync
+docker compose logs -f swng-reposync
 ```
+On first run, Nginx starts in HTTP-only mode for ACME. Once the certificate is issued,
+it will automatically reload and enable HTTPS.
 
 ### Using Docker
 
@@ -53,14 +101,6 @@ docker run -d \
 ```
 
 ## Configuration
-
-### Environment Variables
-
-- `MIRROR_PATH`: Mirror destination path (default: `/var/www/mirrors/swng`)
-- `LOG_FILE`: Log file path (default: `/var/log/swng-reposync.log`)
-- `REPOS`: Space-separated list of repositories to sync (default: `SWNG-9-x86_64 SWNG-8-x86_64`)
-- `INITIAL_SYNC`: Run initial sync on startup (default: `true`)
-- `SYNC_INTERVAL_HOURS`: Sync interval in hours (default: `6`)
 
 ### Repository Configuration
 
@@ -93,7 +133,7 @@ environment:
 
 ```bash
 # View container logs
-docker-compose logs -f swng-reposync
+docker compose logs -f swng-reposync
 
 # View sync log
 tail -f logs/swng-reposync.log
@@ -106,14 +146,14 @@ ls -lh mirror-data/
 
 ```bash
 # Execute sync script manually
-docker-compose exec swng-reposync /usr/local/bin/sync-script.sh
+docker compose exec swng-reposync /usr/local/bin/sync-script.sh
 ```
 
 ### Update Repository Configuration
 
 1. Edit `swng-upstream.repo` to add/modify repositories
-2. Rebuild the image: `docker-compose build`
-3. Restart: `docker-compose up -d`
+2. Rebuild the image: `docker compose build`
+3. Restart: `docker compose up -d`
 
 ## Differences from RSync Method
 
@@ -127,6 +167,7 @@ The Docker Compose setup includes an Nginx service that automatically serves the
 
 - **Local access**: `http://localhost/swng/`
 - **Network access**: `http://<server-ip>/swng/`
+- **HTTPS**: `https://<your-domain>/swng/`
 
 The Nginx configuration enables directory browsing, so you can navigate the repository structure through a web browser.
 
@@ -135,7 +176,7 @@ The Nginx configuration enables directory browsing, so you can navigate the repo
 The `docker-compose.yml` includes a pre-configured Nginx service that:
 - Serves the mirror data from the `mirror-data` directory
 - Enables directory browsing
-- Runs on port 80
+- Runs on ports 80/443
 - Automatically starts with the mirror container
 
 ## Notes
@@ -146,4 +187,4 @@ The `docker-compose.yml` includes a pre-configured Nginx service that:
 - Mirror data persists in the `mirror-data` directory
 - Logs are stored in the `logs` directory
 - Only repositories listed in `REPOS` environment variable will be synced
-- Nginx automatically serves the mirrors via HTTP
+- Nginx automatically serves the mirrors via HTTP/HTTPS

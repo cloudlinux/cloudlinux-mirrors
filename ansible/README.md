@@ -17,7 +17,7 @@ Sets up a complete local mirror of all SWNG repositories using RSync with automa
 - Systemd timer for automated updates
 - Configurable sync intervals
 
-### 2. Specific SWNG Version Mirror with RSync
+### 2. Specific SWNG Version Mirror with RSync (Recomended)
 **Directory:** `specific-version-rsync/`
 
 Sets up a local mirror of a specific CloudLinux version's SWNG repositories (e.g., only CloudLinux 8 or CloudLinux 9).
@@ -28,7 +28,7 @@ Sets up a local mirror of a specific CloudLinux version's SWNG repositories (e.g
 - Version-specific mirroring
 - RSync-based synchronization
 - Systemd timer for automated updates
-- Supports CloudLinux 8 and 9
+- Supports CloudLinux 10
 
 ### 3. SWNG Mirror with yum-reposync
 **Directory:** `yum-reposync/`
@@ -60,7 +60,7 @@ Sets up a complete local mirror of both CloudLinux and SWNG repositories using R
 
 1. **Choose a playbook** based on your needs
 2. **Edit the inventory file** (`inventory.ini`) in the chosen directory
-3. **Review and customize variables** if needed
+3. **Review and customize variables** (`defaults/main.yml`) if needed
 4. **Run the playbook:**
 
 ```bash
@@ -72,6 +72,7 @@ ansible-playbook -i inventory.ini playbook.yml
 
 - Ansible 2.9 or later
 - Target server(s) with:
+  - OS almalinux 9 or 10
   - Sufficient disk space (varies by playbook)
   - Root or sudo access
   - Network access to `upstream.cloudlinux.com` or `rsync.upstream.cloudlinux.com`
@@ -96,7 +97,7 @@ Most playbooks support these common variables:
 |---------|---------------------|------------------------|--------------|-----------------|
 | Repository Type | SWNG only | SWNG (version-specific) | SWNG (selective) | CloudLinux + SWNG |
 | Sync Method | RSync | RSync | reposync | RSync |
-| Disk Space | ~200-500 GB | ~100-200 GB | Varies | ~500 GB - 1+ TB |
+| Disk Space | ~200-500 GB | ~100-200 GB | Varies | ~500 GB - 2+ TB |
 | Sync Speed | Fast | Fast | Moderate | Fast |
 | Selectivity | Complete | Version-based | Repository-based | Complete |
 | Best For | Complete SWNG | Specific versions | Selective repos | Complete setup |
@@ -105,38 +106,17 @@ Most playbooks support these common variables:
 
 Each playbook directory contains:
 - `playbook.yml` - Main playbook file
+- `defaults/main.yml` - Vars file
 - `inventory.ini` - Inventory file (edit this)
 - `README.md` - Detailed documentation
 - Template files (`.j2`) - Systemd service/timer templates
 
 ## Examples
 
-### Example 1: Mirror Complete SWNG
+### Example: Mirror 
 
 ```bash
-cd complete-swng-rsync
-ansible-playbook -i inventory.ini playbook.yml
-```
-
-### Example 2: Mirror Only CloudLinux 9 SWNG
-
-```bash
-cd specific-version-rsync
-ansible-playbook -i inventory.ini playbook.yml -e "cloudlinux_version=9"
-```
-
-### Example 3: Mirror Specific Repositories
-
-```bash
-cd yum-reposync
-# Create vars.yml with your repository list
-ansible-playbook -i inventory.ini playbook.yml -e @vars.yml
-```
-
-### Example 4: Mirror Everything
-
-```bash
-cd combined-mirror
+cd /chosen directory
 ansible-playbook -i inventory.ini playbook.yml
 ```
 

@@ -1,0 +1,26 @@
+---
+# Default variables
+
+# Mirror paths
+mirror_base_path: /var/www/mirrors
+swng_mirror_path: "{{ mirror_base_path }}/swng"
+
+# RSync configuration
+rsync_source: rsync://rsync.upstream.cloudlinux.com/SWNG/
+sync_log_file: /var/log/swng-mirror.log
+
+# Sync schedule
+sync_interval_hours: 4
+timer_schedule: "*-*-* 00,04,08,12,16,20:00:00"
+
+# SSL/Certbot configuration
+mirror_domain: "{{ inventory_hostname }}"
+certbot_email: "admin@{{ mirror_domain }}"
+certbot_authenticator: webroot  # Options: standalone, webroot
+certbot_webroot: "{{ mirror_base_path }}/acme"
+certbot_enabled: true
+certbot_cron_enabled: true
+certbot_cron_schedule:
+  minute: 0
+  hour: 3
+

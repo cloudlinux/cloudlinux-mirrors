@@ -7,8 +7,8 @@ if [ -z "$CLOUDLINUX_VERSION" ]; then
   exit 1
 fi
 
-if [ "$CLOUDLINUX_VERSION" != "8" ] && [ "$CLOUDLINUX_VERSION" != "9" ]; then
-  echo "Error: CLOUDLINUX_VERSION must be 8 or 9"
+if [ "$CLOUDLINUX_VERSION" != "10" ]; then
+  echo "Error: CLOUDLINUX_VERSION must be 10"
   exit 1
 fi
 

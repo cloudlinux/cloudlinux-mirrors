@@ -1,0 +1,103 @@
+---
+- name: Verify SWNG mirror setup
+  hosts: mirror_servers
+  become: yes
+  vars_files:
+    - defaults/main.yml
+
+  tasks:
+    - name: Check storage mountpoint
+      command: mountpoint -q {{ mirror_base_path }}
+      register: mountpoint_check
+      changed_when: false
+      failed_when: false
+
+    - name: Report storage mount
+      debug:
+        msg: "OK: {{ mirror_base_path }} is mounted"
+      when: mountpoint_check.rc == 0
+
+    - name: Fail if storage not mounted
+      fail:
+        msg: "ERROR: {{ mirror_base_path }} is not mounted"
+      when: mountpoint_check.rc != 0
+
+    - name: Check mirror directory exists
+      stat:
+        path: "{{ swng_mirror_path }}"
+      register: swng_dir
+
+    - name: Assert mirror directory exists
+      assert:
+        that:
+          - swng_dir.stat.exists
+          - swng_dir.stat.isdir
+        success_msg: "OK: mirror dir {{ swng_mirror_path }} exists"
+        fail_msg: "ERROR: mirror dir {{ swng_mirror_path }} missing"
+
+    - name: Check swng-mirror timer
+      systemd:
+        name: swng-mirror.timer
+      register: swng_timer
+
+    - name: Assert timer active
+      assert:
+        that:
+          - swng_timer.status.ActiveState == "active"
+        success_msg: "OK: swng-mirror.timer is active"
+        fail_msg: "ERROR: swng-mirror.timer is not active"
+
+    - name: Check nginx service
+      systemd:
+        name: nginx
+      register: nginx_service
+
+    - name: Assert nginx active
+      assert:
+        that:
+          - nginx_service.status.ActiveState == "active"
+        success_msg: "OK: nginx is active"
+        fail_msg: "ERROR: nginx is not active"
+
+    - name: Check HTTP access to /swng/ (allow redirect)
+      uri:
+        url: "http://{{ mirror_domain }}/swng/"
+        method: HEAD
+        return_content: no
+        follow_redirects: none
+        status_code:
+          - 200
+          - 301
+          - 302
+
+    - name: Check HTTP redirect for /swng (no trailing slash)
+      uri:
+        url: "http://{{ mirror_domain }}/swng"
+        method: HEAD
+        return_content: no
+        follow_redirects: none
+        status_code:
+          - 301
+          - 302
+
+    - name: Check if Let's Encrypt certificate exists
+      stat:
+        path: "/etc/letsencrypt/live/{{ mirror_domain }}/fullchain.pem"
+      register: certbot_cert
+
+    - name: Check HTTPS access to /swng/ (when cert exists)
+      uri:
+        url: "https://{{ mirror_domain }}/swng/"
+        method: HEAD
+        return_content: no
+        status_code:
+          - 200
+          - 301
+          - 302
+        validate_certs: true
+      when: certbot_cert.stat.exists | default(false)
+
+    - name: Verification complete
+      debug:
+        msg: "OK: verification completed"
+

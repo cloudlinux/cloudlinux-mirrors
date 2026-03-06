@@ -2,32 +2,15 @@
 - name: Setup Specific SWNG Version Mirror with RSync
   hosts: mirror_servers
   become: yes
-  vars:
-    mirror_base_path: /var/www/mirrors
-    cloudlinux_version: 9  # Options: 8, 9
-    swng_mirror_path: "{{ mirror_base_path }}/swng/{{ cloudlinux_version }}"
-    rsync_source: "rsync://rsync.upstream.cloudlinux.com/SWNG/{{ cloudlinux_version }}/"
-    sync_log_file: "/var/log/swng-{{ cloudlinux_version }}-mirror.log"
-    sync_interval_hours: 6
-    timer_schedule: "*-*-* 00,06,12,18:00:00"
-    service_name: "swng-{{ cloudlinux_version }}-mirror"
-    # SSL/Certbot configuration
-    mirror_domain: "{{ inventory_hostname }}"
-    certbot_email: "admin@{{ mirror_domain }}"
-    certbot_authenticator: standalone  # Options: standalone, webroot
-    certbot_webroot: "{{ mirror_base_path }}/acme"
-    certbot_enabled: true
-    certbot_cron_enabled: true
-    certbot_cron_schedule:
-      minute: 0
-      hour: 3
+  vars_files:
+    - defaults/main.yml
 
   tasks:
     - name: Validate CloudLinux version
       assert:
         that:
-          - cloudlinux_version in [8, 9, '8', '9']
-        fail_msg: "cloudlinux_version must be 8 or 9"
+          - cloudlinux_version in [10, '10']
+        fail_msg: "cloudlinux_version must be 10"
         success_msg: "CloudLinux version {{ cloudlinux_version }} is valid"
 
     - name: Check available disk space
@@ -46,7 +29,6 @@
         mode: '0755'
         owner: root
         group: root
-        recurse: yes
 
     - name: Install rsync if not present
       package:
@@ -100,10 +82,10 @@
         name: nginx
         state: present
 
-    - name: Create Nginx configuration for SWNG {{ cloudlinux_version }} mirror
+    - name: Create Nginx configuration for SWNG mirror
       template:
         src: nginx.conf.j2
-        dest: "/etc/nginx/conf.d/swng-{{ cloudlinux_version }}-mirror.conf"
+        dest: "/etc/nginx/conf.d/swng-mirror.conf"
         mode: '0644'
       notify: restart nginx
 
@@ -113,6 +95,30 @@
         enabled: yes
         state: started
       when: certbot_enabled | bool
+
+    - name: Install dnf plugins (for config-manager)
+      package:
+        name: dnf-plugins-core
+        state: present
+      when: certbot_enabled | bool and ansible_facts['os_family'] == 'RedHat'
+
+    - name: Install EPEL repository
+      package:
+        name: epel-release
+        state: present
+      when: certbot_enabled | bool and ansible_facts['os_family'] == 'RedHat'
+      ignore_errors: true
+
+    - name: Enable EPEL repository
+      command: dnf config-manager --set-enabled epel
+      changed_when: false
+      when: certbot_enabled | bool and ansible_facts['os_family'] == 'RedHat'
+      ignore_errors: true
+
+    - name: Refresh DNF metadata
+      command: dnf makecache --refresh
+      changed_when: false
+      when: certbot_enabled | bool and ansible_facts['os_family'] == 'RedHat'
 
     - name: Install certbot packages
       package:
@@ -167,10 +173,10 @@
         state: started
       when: certbot_enabled | bool and certbot_authenticator == 'standalone'
 
-    - name: Create Nginx HTTPS configuration for SWNG {{ cloudlinux_version }} mirror
+    - name: Create Nginx HTTPS configuration for SWNG mirror
       template:
         src: nginx-https.conf.j2
-        dest: "/etc/nginx/conf.d/swng-{{ cloudlinux_version }}-mirror-https.conf"
+        dest: "/etc/nginx/conf.d/swng-mirror-https.conf"
         mode: '0644'
       notify: restart nginx
       when: certbot_enabled | bool
@@ -178,7 +184,7 @@
     - name: Update HTTP Nginx configuration to redirect to HTTPS
       template:
         src: nginx.conf.j2
-        dest: "/etc/nginx/conf.d/swng-{{ cloudlinux_version }}-mirror.conf"
+        dest: "/etc/nginx/conf.d/swng-mirror.conf"
         mode: '0644'
       notify: restart nginx
       when: certbot_enabled | bool

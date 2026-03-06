@@ -2,6 +2,7 @@
 # HTTP to HTTPS redirect
 server {
     listen 80;
+    listen [::]:80;
     server_name {{ mirror_domain }};
     
     # ACME challenge location for Let's Encrypt
@@ -17,6 +18,7 @@ server {
 {% else %}
 server {
     listen 80;
+    listen [::]:80;
     server_name _;
     root {{ mirror_base_path }};
     index index.html;

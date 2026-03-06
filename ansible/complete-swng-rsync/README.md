@@ -6,28 +6,15 @@ This Ansible playbook sets up a complete local mirror of all SWNG repositories u
 
 - Ansible 2.9 or later
 - Target server(s) with:
+  - OS almalinux 9 or 10
   - Sufficient disk space (several hundred GB recommended)
   - Root or sudo access
   - Network access to `rsync.upstream.cloudlinux.com`
   - Systemd support
 
-## Inventory Configuration
-
-Edit `inventory.ini` to specify your mirror server(s):
-
-```ini
-[mirror_servers]
-mirror-server-01 ansible_host=192.168.1.100
-mirror-server-02 ansible_host=192.168.1.101
-
-[mirror_servers:vars]
-ansible_user=root
-ansible_ssh_private_key_file=~/.ssh/id_rsa
-```
-
 ## Variables
 
-You can customize the playbook by overriding variables:
+Default variables are defined in `defaults/main.yml`. You can customize the playbook by overriding variables:
 
 - `mirror_base_path`: Base path for mirrors (default: `/var/www/mirrors`)
 - `swng_mirror_path`: SWNG mirror directory (default: `/var/www/mirrors/swng`)
@@ -35,6 +22,22 @@ You can customize the playbook by overriding variables:
 - `sync_log_file`: Log file path (default: `/var/log/swng-mirror.log`)
 - `sync_interval_hours`: Sync interval in hours (default: `4`)
 - `timer_schedule`: Systemd timer schedule (default: `*-*-* 00,04,08,12,16,20:00:00`)
+- `mirror_domain`: Domain name for SSL certificate (default: `{{ inventory_hostname }}`)
+- `certbot_email`: Email for Let's Encrypt certificate (default: `admin@{{ mirror_domain }}`)
+- `certbot_enabled`: Enable SSL certificate setup (default: `true`)
+- `certbot_authenticator`: Certbot authentication method (default: `webroot`, options: `standalone`, `webroot`)
+
+## What the Playbook Does
+
+1. Checks available disk space
+2. Creates mirror directory structure
+3. Installs rsync if needed
+4. Performs initial repository sync (runs asynchronously)
+5. Creates systemd service for automated syncing
+6. Creates systemd timer for scheduled updates
+7. Enables and starts the timer
+8. Installs and configures Nginx web server
+9. Enables and starts Nginx to serve the mirror
 
 ## Usage
 
@@ -52,36 +55,55 @@ ansible-playbook -i inventory.ini playbook.yml \
   -e "sync_interval_hours=6"
 ```
 
-### Using a Variables File
+## How to install
+Edit `inventory.ini` to specify your mirror server(s):
 
-Create `vars.yml`:
+```ini
+[mirror_servers]
+mirror-server-01 ansible_host=192.168.1.100
+mirror-server-02 ansible_host=192.168.1.101
 
+[mirror_servers:vars]
+ansible_user=root
+ansible_ssh_private_key_file=~/.ssh/id_rsa
+```
+Edit the `defaults/main.yml` if necessary
 ```yaml
-mirror_base_path: /opt/mirrors
-swng_mirror_path: /opt/mirrors/swng
-sync_interval_hours: 6
-timer_schedule: "*-*-* 00,06,12,18:00:00"
-```
+# Default variables for Complete SWNG Mirror Playbook
 
+# Mirror paths
+mirror_base_path: /var/www/mirrors
+swng_mirror_path: "{{ mirror_base_path }}/swng"
+
+# RSync configuration
+rsync_source: rsync://rsync.upstream.cloudlinux.com/SWNG/
+sync_log_file: /var/log/swng-mirror.log
+
+# Sync schedule
+sync_interval_hours: 4
+timer_schedule: "*-*-* 00,04,08,12,16,20:00:00"
+
+# SSL/Certbot configuration
+mirror_domain: "{{ inventory_hostname }}"
+certbot_email: "admin@{{ mirror_domain }}"
+certbot_authenticator: webroot  # Options: standalone, webroot
+certbot_webroot: "{{ mirror_base_path }}/acme"
+certbot_enabled: true
+certbot_cron_enabled: true
+certbot_cron_schedule:
+  minute: 0
+  hour: 3
+```
 Run with:
-
 ```bash
-ansible-playbook -i inventory.ini playbook.yml -e @vars.yml
+ansible-playbook -i inventory.ini playbook.yml
+```
+After playbook run for verification
+```bash
+ansible-playbook -i inventory.ini verify.yml
 ```
 
-## What the Playbook Does
-
-1. Checks available disk space
-2. Creates mirror directory structure
-3. Installs rsync if needed
-4. Performs initial repository sync (runs asynchronously)
-5. Creates systemd service for automated syncing
-6. Creates systemd timer for scheduled updates
-7. Enables and starts the timer
-8. Installs and configures Nginx web server
-9. Enables and starts Nginx to serve the mirror
-
-## Verification
+##  Manual Verification
 
 After running the playbook, verify the setup:
 
@@ -96,13 +118,14 @@ systemctl list-timers swng-mirror.timer
 tail -f /var/log/swng-mirror.log
 
 # Verify mirror directory
-ls -lh /var/www/mirrors/swng/
+ls -lh /swng_mirror_path/swng/
 
 # Check Nginx status
 systemctl status nginx
 
 # Test web access
-curl http://localhost/swng/
+curl -I http://<mirror-domain>/swng/
+curl -I https://<mirror-domain>/swng/
 ```
 
 ## Accessing the Mirror via Web

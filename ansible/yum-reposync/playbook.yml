@@ -2,32 +2,8 @@
 - name: Setup SWNG Mirror with yum-reposync
   hosts: mirror_servers
   become: yes
-  vars:
-    mirror_base_path: /var/www/mirrors
-    swng_mirror_path: "{{ mirror_base_path }}/swng"
-    sync_log_file: /var/log/swng-reposync.log
-    sync_interval_hours: 6
-    timer_schedule: "*-*-* 00,06,12,18:00:00"
-    service_name: swng-reposync
-    # SSL/Certbot configuration
-    mirror_domain: "{{ inventory_hostname }}"
-    certbot_email: "admin@{{ mirror_domain }}"
-    certbot_authenticator: standalone  # Options: standalone, webroot
-    certbot_webroot: "{{ mirror_base_path }}/acme"
-    certbot_enabled: true
-    certbot_cron_enabled: true
-    certbot_cron_schedule:
-      minute: 0
-      hour: 3
-    # List of repositories to sync
-    # Source: https://upstream.cloudlinux.com/swng/
-    swng_repos:
-      - name: SWNG-9-x86_64
-        baseurl: https://upstream.cloudlinux.com/swng/9/x86_64/
-        enabled: true
-      - name: SWNG-8-x86_64
-        baseurl: https://upstream.cloudlinux.com/swng/8/x86_64/
-        enabled: true
+  vars_files:
+    - defaults/main.yml
 
   tasks:
     - name: Check available disk space
@@ -38,6 +14,13 @@
     - name: Display available disk space
       debug:
         msg: "{{ disk_space.stdout_lines }}"
+
+    - name: Create SWNG repository configuration file
+      template:
+        src: swng-upstream.repo.j2
+        dest: /etc/yum.repos.d/swng-upstream.repo
+        mode: '0644'
+      notify: clean yum cache
 
     - name: Install required packages
       package:
@@ -55,13 +38,6 @@
         group: root
         recurse: yes
 
-    - name: Create SWNG repository configuration file
-      template:
-        src: swng-upstream.repo.j2
-        dest: /etc/yum.repos.d/swng-upstream.repo
-        mode: '0644'
-      notify: clean yum cache
-
     - name: Import CloudLinux GPG key if not present
       rpm_key:
         state: present
@@ -71,15 +47,26 @@
     - name: Perform initial repository sync
       command: >
         reposync -p {{ swng_mirror_path }}/
-        {% for repo in swng_repos %}
-        {% if repo.enabled %}
-        -r {{ repo.name }}
+        --repo {{ item.name }}
+        {% if item.module_platform_id is defined %}
+        --setopt=module_platform_id={{ item.module_platform_id }}
         {% endif %}
-        {% endfor %}
       async: 3600
       poll: 0
       register: initial_sync
       ignore_errors: yes
+      loop: "{{ swng_repos }}"
+      when: item.enabled
+
+    - name: Ensure repo directories exist before createrepo
+      file:
+        path: "{{ swng_mirror_path }}/{{ item.name }}"
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+      loop: "{{ swng_repos }}"
+      when: item.enabled
 
     - name: Update repository metadata for synced repos
       command: createrepo {{ swng_mirror_path }}/{{ item.name }}/
@@ -135,6 +122,30 @@
         enabled: yes
         state: started
       when: certbot_enabled | bool
+
+    - name: Install dnf plugins (for config-manager)
+      package:
+        name: dnf-plugins-core
+        state: present
+      when: certbot_enabled | bool and ansible_facts['os_family'] == 'RedHat'
+
+    - name: Install EPEL repository
+      package:
+        name: epel-release
+        state: present
+      when: certbot_enabled | bool and ansible_facts['os_family'] == 'RedHat'
+      ignore_errors: true
+
+    - name: Enable EPEL repository
+      command: dnf config-manager --set-enabled epel
+      changed_when: false
+      when: certbot_enabled | bool and ansible_facts['os_family'] == 'RedHat'
+      ignore_errors: true
+
+    - name: Refresh DNF metadata
+      command: dnf makecache --refresh
+      changed_when: false
+      when: certbot_enabled | bool and ansible_facts['os_family'] == 'RedHat'
 
     - name: Install certbot packages
       package:

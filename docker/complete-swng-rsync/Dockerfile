@@ -1,4 +1,4 @@
-FROM cloudlinux:8
+FROM almalinux:8
 
 # Install required packages
 RUN yum install -y rsync cronie && \

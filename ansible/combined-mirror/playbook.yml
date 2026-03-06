@@ -2,30 +2,8 @@
 - name: Setup Combined CloudLinux and SWNG Mirror
   hosts: mirror_servers
   become: yes
-  vars:
-    mirror_base_path: /var/www/mirrors
-    cloudlinux_mirror_path: "{{ mirror_base_path }}/cloudlinux"
-    swng_mirror_path: "{{ mirror_base_path }}/swng"
-    cloudlinux_rsync_source: rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/
-    swng_rsync_source: rsync://rsync.upstream.cloudlinux.com/SWNG/
-    cloudlinux_sync_log: /var/log/cloudlinux-mirror.log
-    swng_sync_log: /var/log/swng-mirror.log
-    combined_sync_log: /var/log/cloudlinux-complete-mirror.log
-    sync_interval_hours: 4
-    timer_schedule: "*-*-* 00,04,08,12,16,20:00:00"
-    service_name: cloudlinux-complete-mirror
-    # Options: 'combined' (single timer for both), 'separate' (separate timers)
-    sync_mode: combined
-    # SSL/Certbot configuration
-    mirror_domain: "{{ inventory_hostname }}"
-    certbot_email: "admin@{{ mirror_domain }}"
-    certbot_authenticator: standalone  # Options: standalone, webroot
-    certbot_webroot: "{{ mirror_base_path }}/acme"
-    certbot_enabled: true
-    certbot_cron_enabled: true
-    certbot_cron_schedule:
-      minute: 0
-      hour: 3
+  vars_files:
+    - defaults/main.yml
 
   tasks:
     - name: Check available disk space
@@ -44,7 +22,6 @@
         mode: '0755'
         owner: root
         group: root
-        recurse: yes
 
     - name: Create SWNG mirror directory
       file:
@@ -53,7 +30,6 @@
         mode: '0755'
         owner: root
         group: root
-        recurse: yes
 
     - name: Install rsync if not present
       package:
@@ -183,6 +159,30 @@
         enabled: yes
         state: started
       when: certbot_enabled | bool
+
+    - name: Install dnf plugins (for config-manager)
+      package:
+        name: dnf-plugins-core
+        state: present
+      when: certbot_enabled | bool and ansible_facts['os_family'] == 'RedHat'
+
+    - name: Install EPEL repository
+      package:
+        name: epel-release
+        state: present
+      when: certbot_enabled | bool and ansible_facts['os_family'] == 'RedHat'
+      ignore_errors: true
+
+    - name: Enable EPEL repository
+      command: dnf config-manager --set-enabled epel
+      changed_when: false
+      when: certbot_enabled | bool and ansible_facts['os_family'] == 'RedHat'
+      ignore_errors: true
+
+    - name: Refresh DNF metadata
+      command: dnf makecache --refresh
+      changed_when: false
+      when: certbot_enabled | bool and ansible_facts['os_family'] == 'RedHat'
 
     - name: Install certbot packages
       package:
