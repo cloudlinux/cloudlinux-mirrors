@@ -298,11 +298,11 @@ After setting up your mirror:
 3. **Monitor sync logs** regularly
 4. **Set up alerts** for sync failures
 
-For more information about adding your mirror to CloudLinux rotation, see the main documentation in `../docs/upstream.cloudlinux.com-customer-guide.md`.
+For more information about adding your mirror to CloudLinux rotation, see the main `../README.md`.
 
 ## Support
 
 For issues or questions:
 - Review the individual setup README files
-- Check the main documentation: `../docs/upstream.cloudlinux.com-customer-guide.md`
+- Check the main documentation: `../README.md`
 - Contact CloudLinux support
