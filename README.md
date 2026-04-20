@@ -2,7 +2,7 @@
 
 This repository contains ready-to-use Ansible playbooks, Docker Compose setups, and manual step-by-step instructions for setting up CloudLinux repository mirrors.
 
-For background on the mirror system changes (legacy XMLRPC/custom SSL to standard HTTPS) and the migration guide, see the public KB article: **CloudLinux Mirror System: What Is Changing and How to Migrate** ([[CloudLinux Support](https://cloudlinux.zendesk.com/hc/en-us/articles/26200193937052-CloudLinux-Mirror-System-What-Is-Changing-and-How-to-Migrate?brand_id=1568765)].
+For background on the mirror system changes (legacy XMLRPC/custom SSL to standard HTTPS) and the migration guide, see the public KB article: **CloudLinux Mirror System: What Is Changing and How to Migrate** [CloudLinux Support KB](https://cloudlinux.zendesk.com/hc/en-us/articles/26200193937052-CloudLinux-Mirror-System-What-Is-Changing-and-How-to-Migrate?brand_id=1568765).
 
 Currently **CloudLinux OS 10** is supported. Support for older versions (8, 9) will be enabled gradually.
 
