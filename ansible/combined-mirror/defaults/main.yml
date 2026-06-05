@@ -30,3 +30,7 @@ certbot_cron_enabled: true
 certbot_cron_schedule:
   minute: 0
   hour: 3
+
+# /healthcheck endpoint (required by cl-mirrors mirrorservice)
+healthcheck_file: /var/www/healthcheck.html
+healthcheck_source_name: swng.cloudlinux.com

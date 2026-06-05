@@ -26,6 +26,12 @@ server {
     error_log /var/log/nginx/swng-{{ cloudlinux_version }}-mirror-https-error.log;
 
     # SWNG CloudLinux repositories
+    # Required by cl-mirrors mirrorservice (health-check)
+    location = /healthcheck {
+        alias {{ healthcheck_file }};
+        default_type text/html;
+    }
+
     location / {
         try_files $uri $uri/ =404;
     }

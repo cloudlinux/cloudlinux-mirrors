@@ -31,6 +31,12 @@ server {
         autoindex on;
     }
 
+    # Required by cl-mirrors mirrorservice (health-check)
+    location = /healthcheck {
+        alias {{ healthcheck_file }};
+        default_type text/html;
+    }
+
     # SWNG repositories
     location /swng/ {
         alias {{ swng_mirror_path }}/;

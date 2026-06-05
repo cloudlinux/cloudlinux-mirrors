@@ -73,6 +73,26 @@
       debug:
         msg: "{{ timer_status.stdout_lines }}"
 
+    - name: Install /healthcheck update script (required by cl-mirrors mirrorservice)
+      ansible.builtin.copy:
+        src: update-healthcheck.sh
+        dest: /usr/local/bin/update-healthcheck.sh
+        mode: '0755'
+
+    - name: Ensure /healthcheck file directory exists
+      ansible.builtin.file:
+        path: "{{ healthcheck_file | dirname }}"
+        state: directory
+        mode: '0755'
+
+    - name: Generate initial /healthcheck so it is available before first sync completes
+      ansible.builtin.command:
+        cmd: /usr/local/bin/update-healthcheck.sh "{{ healthcheck_source_name }}" PENDING
+      args:
+        creates: "{{ healthcheck_file }}"
+      environment:
+        HEALTHCHECK_FILE: "{{ healthcheck_file }}"
+
     - name: Install Nginx
       package:
         name: nginx

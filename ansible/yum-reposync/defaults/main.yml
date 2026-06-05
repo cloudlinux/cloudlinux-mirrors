@@ -41,3 +41,7 @@ swng_repos:
   #  baseurl: https://upstream.cloudlinux.com/swng/8/x86_64/
   #  module_platform_id: platform:el8
   #  enabled: true
+
+# /healthcheck endpoint (required by cl-mirrors mirrorservice)
+healthcheck_file: /var/www/healthcheck.html
+healthcheck_source_name: swng.cloudlinux.com

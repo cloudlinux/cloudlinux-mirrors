@@ -10,6 +10,12 @@ server {
         root {{ certbot_webroot | default('/var/www/mirrors/acme') }};
     }
 
+    # Required by cl-mirrors mirrorservice (health-check)
+    location = /healthcheck {
+        alias {{ healthcheck_file }};
+        default_type text/html;
+    }
+
     # Normalize SWNG path (no trailing slash)
     location = /swng {
         return 301 https://$server_name/swng/;
@@ -36,6 +42,12 @@ server {
     # Logging
     access_log /var/log/nginx/swng-mirror-access.log;
     error_log /var/log/nginx/swng-mirror-error.log;
+
+    # Required by cl-mirrors mirrorservice (health-check)
+    location = /healthcheck {
+        alias {{ healthcheck_file }};
+        default_type text/html;
+    }
 
     # SWNG repositories
     location / {
