@@ -1,6 +1,7 @@
 [Unit]
 Description=Sync SWNG Repositories with reposync
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=oneshot
