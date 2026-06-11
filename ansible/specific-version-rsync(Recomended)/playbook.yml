@@ -77,25 +77,55 @@
       debug:
         msg: "{{ timer_status.stdout_lines }}"
 
-    - name: Install /healthcheck update script (required by cl-mirrors mirrorservice)
-      ansible.builtin.copy:
-        src: update-healthcheck.sh
-        dest: /usr/local/bin/update-healthcheck.sh
+    - name: Install epel-release (required for python3-dotenv on RedHat-family)
+      tags: healthcheck
+      ansible.builtin.package:
+        name: epel-release
+        state: present
+      when: ansible_facts['os_family'] == 'RedHat'
+      ignore_errors: true
+
+    - name: Install python3-dotenv (required by healthcheck_update.py)
+      tags: healthcheck
+      ansible.builtin.package:
+        name: python3-dotenv
+        state: present
+
+    - name: Ensure /opt/healthcheck directory exists
+      tags: healthcheck
+      ansible.builtin.file:
+        path: /opt/healthcheck
+        state: directory
         mode: '0755'
 
-    - name: Ensure /healthcheck file directory exists
+    - name: Install healthcheck_update.py (shared from ansible/healthcheck/)
+      tags: healthcheck
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../healthcheck/healthcheck_update.py"
+        dest: /opt/healthcheck/healthcheck_update.py
+        mode: '0755'
+
+    - name: Deploy /opt/healthcheck/.env (idempotent, preserves customer edits)
+      tags: healthcheck
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../healthcheck/.env"
+        dest: /opt/healthcheck/.env
+        mode: '0644'
+        force: false
+
+    - name: Ensure /var/www directory exists (serves /healthcheck HTML)
+      tags: healthcheck
       ansible.builtin.file:
-        path: "{{ healthcheck_file | dirname }}"
+        path: /var/www
         state: directory
         mode: '0755'
 
     - name: Generate initial /healthcheck so it is available before first sync completes
+      tags: healthcheck
       ansible.builtin.command:
-        cmd: /usr/local/bin/update-healthcheck.sh "{{ healthcheck_source_name }}" PENDING
+        cmd: /usr/bin/python3 /opt/healthcheck/healthcheck_update.py --service swng --field source --value {{ healthcheck_source_name }} --status PENDING
       args:
-        creates: "{{ healthcheck_file }}"
-      environment:
-        HEALTHCHECK_FILE: "{{ healthcheck_file }}"
+        creates: /var/www/healthcheck.html
 
     - name: Install Nginx
       package:
