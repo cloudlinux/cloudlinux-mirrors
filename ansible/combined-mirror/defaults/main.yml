@@ -33,4 +33,5 @@ certbot_cron_schedule:
 
 # /healthcheck endpoint (required by cl-mirrors mirrorservice)
 healthcheck_file: /var/www/healthcheck.html
+healthcheck_json_file: /var/www/healthcheck.json
 healthcheck_source_name: swng.cloudlinux.com

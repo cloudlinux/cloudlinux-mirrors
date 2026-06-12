@@ -5,6 +5,6 @@ After=network.target
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/rsync -av --delete {{ swng_rsync_source }} {{ swng_mirror_path }}/
-ExecStartPost=/usr/bin/python3 /opt/healthcheck/healthcheck_update.py --service swng --field source --value {{ healthcheck_source_name }} --status OK
+ExecStartPost=/usr/bin/python3 /opt/healthcheck/healthcheck_update.py --service sync --field repo --value {{ healthcheck_source_name }} --status OK
 StandardOutput=append:{{ swng_sync_log }}
 StandardError=append:{{ swng_sync_log }}

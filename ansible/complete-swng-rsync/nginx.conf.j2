@@ -16,6 +16,13 @@ server {
         default_type text/html;
     }
 
+    # Required by cl-mirrors mirrorservice (machine-readable JSON, post-2026-06-12 contract)
+    location = /healthcheck.json {
+        alias {{ healthcheck_json_file }};
+        default_type application/json;
+        add_header Cache-Control "no-store";
+    }
+
     # Normalize SWNG path (no trailing slash)
     location = /swng {
         return 301 https://$server_name/swng/;
@@ -47,6 +54,13 @@ server {
     location = /healthcheck {
         alias {{ healthcheck_file }};
         default_type text/html;
+    }
+
+    # Required by cl-mirrors mirrorservice (machine-readable JSON, post-2026-06-12 contract)
+    location = /healthcheck.json {
+        alias {{ healthcheck_json_file }};
+        default_type application/json;
+        add_header Cache-Control "no-store";
     }
 
     # SWNG repositories
