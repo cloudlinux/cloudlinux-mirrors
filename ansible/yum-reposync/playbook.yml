@@ -75,6 +75,7 @@
       ignore_errors: yes
 
     - name: Create systemd service for SWNG reposync
+      tags: healthcheck
       template:
         src: swng-reposync.service.j2
         dest: "/etc/systemd/system/{{ service_name }}.service"
@@ -160,6 +161,7 @@
         state: present
 
     - name: Create Nginx configuration for SWNG reposync mirror
+      tags: healthcheck
       template:
         src: nginx.conf.j2
         dest: /etc/nginx/conf.d/swng-reposync-mirror.conf
@@ -251,6 +253,7 @@
       when: certbot_enabled | bool and certbot_authenticator == 'standalone'
 
     - name: Create Nginx HTTPS configuration for SWNG reposync mirror
+      tags: healthcheck
       template:
         src: nginx-https.conf.j2
         dest: /etc/nginx/conf.d/swng-reposync-mirror-https.conf
@@ -259,6 +262,7 @@
       when: certbot_enabled | bool
 
     - name: Update HTTP Nginx configuration to redirect to HTTPS
+      tags: healthcheck
       template:
         src: nginx.conf.j2
         dest: /etc/nginx/conf.d/swng-reposync-mirror.conf

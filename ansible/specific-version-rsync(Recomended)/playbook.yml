@@ -48,6 +48,7 @@
       ignore_errors: yes
 
     - name: Create systemd service for SWNG {{ cloudlinux_version }} mirror sync
+      tags: healthcheck
       template:
         src: swng-version-mirror.service.j2
         dest: "/etc/systemd/system/{{ service_name }}.service"
@@ -133,6 +134,7 @@
         state: present
 
     - name: Create Nginx configuration for SWNG mirror
+      tags: healthcheck
       template:
         src: nginx.conf.j2
         dest: "/etc/nginx/conf.d/swng-mirror.conf"
@@ -224,6 +226,7 @@
       when: certbot_enabled | bool and certbot_authenticator == 'standalone'
 
     - name: Create Nginx HTTPS configuration for SWNG mirror
+      tags: healthcheck
       template:
         src: nginx-https.conf.j2
         dest: "/etc/nginx/conf.d/swng-mirror-https.conf"
@@ -232,6 +235,7 @@
       when: certbot_enabled | bool
 
     - name: Update HTTP Nginx configuration to redirect to HTTPS
+      tags: healthcheck
       template:
         src: nginx.conf.j2
         dest: "/etc/nginx/conf.d/swng-mirror.conf"

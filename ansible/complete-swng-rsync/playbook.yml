@@ -44,6 +44,7 @@
       command: chmod -R o+rx {{ swng_mirror_path }}
 
     - name: Create systemd service for SWNG mirror sync
+      tags: healthcheck
       template:
         src: swng-mirror.service.j2
         dest: /etc/systemd/system/swng-mirror.service
@@ -129,6 +130,7 @@
         state: present
 
     - name: Create Nginx configuration for SWNG mirror
+      tags: healthcheck
       template:
         src: nginx.conf.j2
         dest: /etc/nginx/conf.d/swng-mirror.conf
@@ -220,6 +222,7 @@
       when: certbot_enabled | bool and certbot_authenticator == 'standalone'
 
     - name: Create Nginx HTTPS configuration for SWNG mirror
+      tags: healthcheck
       template:
         src: nginx-https.conf.j2
         dest: /etc/nginx/conf.d/swng-mirror-https.conf
@@ -228,6 +231,7 @@
       when: certbot_enabled | bool
 
     - name: Update HTTP Nginx configuration to redirect to HTTPS
+      tags: healthcheck
       template:
         src: nginx.conf.j2
         dest: /etc/nginx/conf.d/swng-mirror.conf
