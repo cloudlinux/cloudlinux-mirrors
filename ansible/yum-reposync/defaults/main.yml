@@ -42,7 +42,7 @@ swng_repos:
   #  module_platform_id: platform:el8
   #  enabled: true
 
-# /healthcheck endpoint (required by cl-mirrors mirrorservice)
+# /healthcheck endpoint
 healthcheck_file: /var/www/healthcheck.html
 healthcheck_json_file: /var/www/healthcheck.json
 healthcheck_source_name: swng.cloudlinux.com

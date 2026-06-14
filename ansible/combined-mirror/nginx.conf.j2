@@ -38,13 +38,12 @@ server {
         autoindex on;
     }
 
-    # Required by cl-mirrors mirrorservice (health-check)
+    # Health-check for mirrorservice
     location = /healthcheck {
         alias {{ healthcheck_file }};
         default_type text/html;
     }
 
-    # Required by cl-mirrors mirrorservice (machine-readable JSON, post-2026-06-12 contract)
     location = /healthcheck.json {
         alias {{ healthcheck_json_file }};
         default_type application/json;
