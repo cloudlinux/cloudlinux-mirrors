@@ -121,6 +121,27 @@
         state: directory
         mode: '0755'
 
+    - name: Ensure SELinux management tooling (semanage) is present
+      tags: healthcheck
+      ansible.builtin.package:
+        name: policycoreutils-python-utils
+        state: present
+      when: ansible_facts['os_family'] == 'RedHat'
+
+    - name: Label /var/www and healthcheck files so nginx can read them (SELinux enforcing)
+      tags: healthcheck
+      ansible.builtin.shell: |
+        semanage fcontext -a -t public_content_rw_t '/var/www(/.*)?' 2>/dev/null \
+          || semanage fcontext -m -t public_content_rw_t '/var/www(/.*)?'
+        restorecon -Fv /var/www {{ healthcheck_file }} {{ healthcheck_json_file }} 2>/dev/null \
+          || restorecon -Fv /var/www
+      register: selinux_relabel
+      changed_when: "'Relabeled' in selinux_relabel.stdout"
+      when:
+        - ansible_facts['os_family'] == 'RedHat'
+        - ansible_facts['selinux'] is defined
+        - ansible_facts['selinux'].status | default('disabled') == 'enabled'
+
     - name: Generate initial /healthcheck so it is available before first sync completes
       tags: healthcheck
       ansible.builtin.command:
