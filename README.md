@@ -133,7 +133,6 @@ If you set up your mirror **before** the `/healthcheck` endpoint contract was in
 | Method | Migration |
 |---|---|
 | **Ansible** | Re-run with `--tags healthcheck` — see [ansible/README.md](ansible/README.md#adding-healthcheck-to-existing-deployments) |
-| **Docker** | Rebuild container with latest image — see [docker/README.md](docker/README.md#adding-healthcheck-to-existing-deployments) |
 | **Manual** | Add files + nginx + systemd hooks — see [manual install/README.md](manual%20install/README.md#adding-healthcheck-to-existing-deployments) |
 
 > ⚠️ **Without a working `/healthcheck.json`, your mirror is silently dropped from the mirrorlist response** even after registration — clients never reach it.

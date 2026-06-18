@@ -156,6 +156,63 @@ ls -lh /var/www/mirrors/
    - Verify network connectivity
    - Check disk space
 
+## Adding /healthcheck to Existing Deployments
+
+If you already deployed a mirror via these playbooks **before** the `/healthcheck` endpoint was added, you can install just the new components by re-running the playbook with the `healthcheck` tag — without touching your sync state or repository data:
+
+```bash
+cd ansible/<your-flavor>           # e.g., complete-swng-rsync
+git pull origin main               # pull latest playbook
+ansible-playbook -i inventory.ini playbook.yml --tags healthcheck \
+  -e "mirror_domain=<your-mirror-domain>"
+```
+
+### What `--tags healthcheck` deploys
+
+- `/opt/healthcheck/healthcheck_update.py` — status update tool (Python, Apache 2.0)
+- `/opt/healthcheck/.env` — paths config (idempotent: `force: false` preserves your edits)
+- `/var/www/healthcheck.html` + `/var/www/healthcheck.json` — initial PENDING files
+- Nginx `location = /healthcheck` (HTML, backward-compat) + `location = /healthcheck.json` (JSON, current contract)
+- `ExecStartPost=` hook in your sync service — flips status from `PENDING` to `OK` after each sync
+- SELinux `public_content_rw_t` fcontext on `/var/www` (RedHat-family with enforcing SELinux only — fixes nginx `httpd_t` denial)
+
+### After tags run
+
+Trigger your sync service immediately so the status flips to `OK` without waiting for the next timer:
+
+```bash
+# choose the service unit matching your flavor
+systemctl start swng-mirror.service               # complete-swng-rsync, combined-mirror (separate mode)
+systemctl start cloudlinux-complete-mirror.service  # combined-mirror (combined mode)
+systemctl start swng-<version>-mirror.service     # specific-version-rsync (per CL version)
+systemctl start swng-reposync.service             # yum-reposync
+```
+
+### Verification
+
+```bash
+# JSON endpoint — used by the cl-mirrors mirrorservice checker
+curl -s https://<your-mirror>/healthcheck.json
+```
+
+Expected:
+
+```json
+{
+  "healthcheck_update": "YYYY/MM/DD HH:MM:SS",
+  "sync_status": [
+    {"repo": "swng.cloudlinux.com", "status": "OK", "time": "YYYY/MM/DD HH:MM:SS"}
+  ]
+}
+```
+
+If `/healthcheck.json` returns `HTTP 404`, the nginx vhost did not pick up the new `location` block — check that the handler ran:
+
+```bash
+systemctl reload nginx
+nginx -T | grep -A2 "location = /healthcheck"
+```
+
 ## Next Steps
 
 After setting up your mirror:
