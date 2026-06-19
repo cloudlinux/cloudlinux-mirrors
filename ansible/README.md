@@ -93,14 +93,14 @@ Most playbooks support these common variables:
 
 ## Playbook Comparison
 
-| Feature | Complete SWNG RSync | Specific Version RSync | yum-reposync | Combined Mirror |
-|---------|---------------------|------------------------|--------------|-----------------|
-| Repository Type | SWNG only | SWNG (version-specific) | SWNG (selective) | CloudLinux + SWNG |
-| Sync Method | RSync | RSync | reposync | RSync |
-| Disk Space | ~200-500 GB | ~100-200 GB | Varies | ~500 GB - 2+ TB |
-| Sync Speed | Fast | Fast | Moderate | Fast |
-| Selectivity | Complete | Version-based | Repository-based | Complete |
-| Best For | Complete SWNG | Specific versions | Selective repos | Complete setup |
+| Feature | Complete SWNG RSync | Specific Version RSync  | yum-reposync | Combined Mirror |
+|---------|---------------------|-------------------------|--------------|-------|
+| Repository Type | SWNG only           | SWNG (version-specific) | SWNG (selective) | CloudLinux + SWNG |
+| Sync Method | RSync               | RSync                   | reposync | RSync |
+| Disk Space | ~300-500 GB         | ~200-300 GB             | Varies | 2+ TB |
+| Sync Speed | Fast                | Fast                    | Moderate | Fast |
+| Selectivity | Complete            | Version-based           | Repository-based | Complete |
+| Best For | Complete SWNG       | Specific versions       | Selective repos | Complete setup |
 
 ## Customization
 
@@ -155,6 +155,54 @@ ls -lh /var/www/mirrors/
    - Check log files in `/var/log/`
    - Verify network connectivity
    - Check disk space
+
+## Adding /healthcheck to Existing Deployments
+
+If you already deployed a mirror via these playbooks **before** the `/healthcheck` endpoint was added, you can install just the new components by re-running the playbook with the `healthcheck` tag — without touching your sync state or repository data:
+
+```bash
+cd ansible/<your-flavor>           # e.g., complete-swng-rsync
+git pull origin main               # pull latest playbook
+ansible-playbook -i inventory.ini playbook.yml --tags healthcheck \
+  -e "mirror_domain=<your-mirror-domain>"
+```
+
+### What `--tags healthcheck` deploys
+
+- `/opt/healthcheck/healthcheck_update.py` — status update tool (Python, Apache 2.0)
+- `/opt/healthcheck/.env` — paths config 
+- `/var/www/healthcheck.html` + `/var/www/healthcheck.json` — initial PENDING files
+- Nginx `location = /healthcheck` (HTML, backward-compat) + `location = /healthcheck.json`
+- `ExecStartPost=` hook in your sync service — flips status from `PENDING` to `OK` after each sync
+
+### After tags run
+
+Trigger your sync service immediately so the status flips to `OK` without waiting for the next timer:
+
+```bash
+# choose the service unit matching your flavor
+systemctl start swng-mirror.service               # complete-swng-rsync, combined-mirror (separate mode)
+systemctl start cloudlinux-complete-mirror.service  # combined-mirror (combined mode)
+systemctl start swng-<version>-mirror.service     # specific-version-rsync (per CL version)
+systemctl start swng-reposync.service             # yum-reposync
+```
+
+### Verification
+
+```bash
+curl -s https://<your-mirror>/healthcheck.json
+```
+
+Expected:
+
+```json
+{
+  "healthcheck_update": "YYYY/MM/DD HH:MM:SS",
+  "sync_status": [
+    {"repo": "swng.cloudlinux.com", "status": "OK", "time": "YYYY/MM/DD HH:MM:SS"}
+  ]
+}
+```
 
 ## Next Steps
 

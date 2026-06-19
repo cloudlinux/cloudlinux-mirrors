@@ -25,3 +25,8 @@ certbot_cron_enabled: true
 certbot_cron_schedule:
   minute: 0
   hour: 3
+
+# /healthcheck endpoint
+healthcheck_file: /var/www/healthcheck.html
+healthcheck_json_file: /var/www/healthcheck.json
+healthcheck_source_name: swng.cloudlinux.com

@@ -12,6 +12,7 @@ Currently **CloudLinux OS 10** is supported. Support for older versions (8, 9) w
 - [Recommended Setup: complete-swng-rsync](#recommended-setup-complete-swng-rsync)
 - [Alternative Mirror Types](#alternative-mirror-types)
 - [Setup Methods](#setup-methods)
+- [Adding /healthcheck to Existing Deployments](#adding-healthcheck-to-existing-deployments)
 - [Registering Your Mirror](#registering-your-mirror)
 - [Best Practices](#best-practices)
 - [Upstream Reference](#upstream-reference)
@@ -124,6 +125,17 @@ Mirrors both **SWNG** and **repo.cloudlinux.com** (conversion/legacy content) in
 | **Best for** | Multiple servers | Containerized environments | Single server |
 
 Each directory contains its own `README.md` with detailed configuration options.
+
+## Adding /healthcheck to Existing Deployments
+
+If you set up your mirror **before** the `/healthcheck` endpoint contract was introduced (legacy deployment, missing endpoint, or `/healthcheck.json` returning 404), follow the migration guide for your setup method:
+
+| Method | Migration |
+|---|---|
+| **Ansible** | Re-run with `--tags healthcheck` — see [ansible/README.md](ansible/README.md#adding-healthcheck-to-existing-deployments) |
+| **Manual** | Add files + nginx + systemd hooks — see [manual install/README.md](manual%20install/README.md#adding-healthcheck-to-existing-deployments) |
+
+> ⚠️ **Without a working `/healthcheck.json`, your mirror is silently dropped from the mirrorlist response** even after registration — clients never reach it.
 
 ## Registering Your Mirror
 

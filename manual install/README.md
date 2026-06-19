@@ -18,6 +18,7 @@ If you prefer automation, use the corresponding playbooks:
 - [2. Complete-swng-rsync: Mirroring the Complete SWNG Repository with RSync](#2-complete-swng-rsync-mirroring-the-complete-swng-repository-with-rsync)
 - [3. Specific-version-rsync: Mirroring Specific SWNG Versions with RSync (Recommended)](#3-specific-version-rsync-mirroring-specific-swng-versions-with-rsync-recommended)
 - [yum-reposync: Mirroring SWNG repositories with `reposync`](#yum-reposync-mirroring-swng-repositories-with-reposync)
+- [Adding /healthcheck to Existing Manual Installations](#adding-healthcheck-to-existing-manual-installations)
 - [Advanced Options](#advanced-options)
 
 ## Prepare Storage
@@ -848,6 +849,132 @@ curl -I http://localhost/swng/ || true
 Optional HTTPS (playbook default):
 - The playbook can obtain a Let's Encrypt certificate using certbot and add `swng-reposync-mirror-https.conf`.
 - For the full automation (including certbot and renewal), see `ansible/yum-reposync/README.md`.
+
+## Adding /healthcheck to Existing Manual Installations
+
+If you set up your mirror manually **before** the `/healthcheck` endpoint contract was required, follow these steps to add it to an existing installation. Paths below assume the defaults from sections 1-4 — adjust if you customized your layout.
+
+### Step 1 — Install dependencies
+
+```bash
+# RedHat-family (CloudLinux, AlmaLinux, RHEL, Rocky)
+dnf install -y epel-release
+dnf install -y python3-dotenv
+
+# Optional but recommended on EL with enforcing SELinux (see Step 6)
+dnf install -y policycoreutils-python-utils
+
+# Debian/Ubuntu
+apt update && apt install -y python3-dotenv
+```
+
+### Step 2 — Install the healthcheck tool
+
+```bash
+mkdir -p /opt/healthcheck /var/www
+
+curl -fsSL https://raw.githubusercontent.com/cloudlinux/cloudlinux-mirrors/main/ansible/healthcheck/healthcheck_update.py \
+  -o /opt/healthcheck/healthcheck_update.py
+chmod 0755 /opt/healthcheck/healthcheck_update.py
+
+cat > /opt/healthcheck/.env <<'EOF'
+HEALTHCHECK_JSON=/var/www/healthcheck.json
+HEALTHCHECK_HTML=/var/www/healthcheck.html
+EOF
+```
+
+### Step 3 — Generate initial PENDING file
+
+This makes `/healthcheck.json` reachable immediately, before your first post-migration sync:
+
+```bash
+/usr/bin/python3 /opt/healthcheck/healthcheck_update.py \
+  --service sync --field repo --value swng.cloudlinux.com --status PENDING
+
+cat /var/www/healthcheck.json
+```
+
+### Step 4 — Add nginx locations
+
+Edit your nginx vhost(s) — typically `/etc/nginx/conf.d/swng-mirror.conf` and/or `swng-mirror-https.conf` — and add inside **each** `server { ... }` block:
+
+```nginx
+    # Health-check for cl-mirrors mirrorservice
+    location = /healthcheck {
+        alias /var/www/healthcheck.html;
+        default_type text/html;
+    }
+
+    location = /healthcheck.json {
+        alias /var/www/healthcheck.json;
+        default_type application/json;
+        add_header Cache-Control "no-store";
+    }
+```
+
+Validate and reload:
+
+```bash
+nginx -t && systemctl reload nginx
+```
+
+### Step 5 — Wire ExecStartPost in your sync service
+
+Edit your systemd sync unit (the one that runs `rsync` or `reposync`) and add the `ExecStartPost=` line to the `[Service]` block. The exact unit file depends on your setup:
+
+| Setup | Unit file |
+|---|---|
+| Combined mirror (one service) | `/etc/systemd/system/cloudlinux-complete-mirror.service` |
+| Separate SWNG service | `/etc/systemd/system/swng-mirror.service` |
+| Per-version SWNG | `/etc/systemd/system/swng-<VERSION>-mirror.service` |
+| reposync | `/etc/systemd/system/swng-reposync.service` |
+
+Add to `[Service]`:
+
+```ini
+ExecStartPost=/usr/bin/python3 /opt/healthcheck/healthcheck_update.py --service sync --field repo --value swng.cloudlinux.com --status OK
+```
+
+Then:
+
+```bash
+systemctl daemon-reload
+```
+
+### Step 6 — Trigger sync to flip PENDING → OK
+
+Run your sync service once so `ExecStartPost` fires and flips the status:
+
+```bash
+# choose the service unit matching your setup
+systemctl start swng-mirror.service               # or cloudlinux-complete-mirror.service /
+                                                  #    swng-<version>-mirror.service /
+                                                  #    swng-reposync.service
+```
+
+Verify:
+
+```bash
+curl -s https://<your-mirror>/healthcheck.json
+```
+
+Expected:
+
+```json
+{
+  "healthcheck_update": "YYYY/MM/DD HH:MM:SS",
+  "sync_status": [
+    {"repo": "swng.cloudlinux.com", "status": "OK", "time": "YYYY/MM/DD HH:MM:SS"}
+  ]
+}
+```
+
+If `status` stays `PENDING` after a sync run, check that your service unit has the `ExecStartPost=` line and that `daemon-reload` was issued:
+
+```bash
+systemctl cat <your-sync>.service | grep ExecStartPost
+journalctl -u <your-sync>.service --since '5 min ago'
+```
 
 ## Advanced Options
 

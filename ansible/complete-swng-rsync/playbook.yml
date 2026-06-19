@@ -44,6 +44,7 @@
       command: chmod -R o+rx {{ swng_mirror_path }}
 
     - name: Create systemd service for SWNG mirror sync
+      tags: healthcheck
       template:
         src: swng-mirror.service.j2
         dest: /etc/systemd/system/swng-mirror.service
@@ -73,12 +74,84 @@
       debug:
         msg: "{{ timer_status.stdout_lines }}"
 
+    - name: Install epel-release (required for python3-dotenv on RedHat-family)
+      tags: healthcheck
+      ansible.builtin.package:
+        name: epel-release
+        state: present
+      when: ansible_facts['os_family'] == 'RedHat'
+      ignore_errors: true
+
+    - name: Install python3-dotenv (required by healthcheck_update.py)
+      tags: healthcheck
+      ansible.builtin.package:
+        name: python3-dotenv
+        state: present
+
+    - name: Ensure /opt/healthcheck directory exists
+      tags: healthcheck
+      ansible.builtin.file:
+        path: /opt/healthcheck
+        state: directory
+        mode: '0755'
+
+    - name: Install healthcheck_update.py (shared from ansible/healthcheck/)
+      tags: healthcheck
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../healthcheck/healthcheck_update.py"
+        dest: /opt/healthcheck/healthcheck_update.py
+        mode: '0755'
+
+    - name: Deploy /opt/healthcheck/.env (idempotent, preserves customer edits)
+      tags: healthcheck
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../healthcheck/.env"
+        dest: /opt/healthcheck/.env
+        mode: '0644'
+        force: false
+
+    - name: Ensure /var/www directory exists (serves /healthcheck HTML)
+      tags: healthcheck
+      ansible.builtin.file:
+        path: /var/www
+        state: directory
+        mode: '0755'
+
+    - name: Ensure SELinux management tooling (semanage) is present
+      tags: healthcheck
+      ansible.builtin.package:
+        name: policycoreutils-python-utils
+        state: present
+      when: ansible_facts['os_family'] == 'RedHat'
+
+    - name: Label /var/www and healthcheck files so nginx can read them (SELinux enforcing)
+      tags: healthcheck
+      ansible.builtin.shell: |
+        semanage fcontext -a -t public_content_rw_t '/var/www(/.*)?' 2>/dev/null \
+          || semanage fcontext -m -t public_content_rw_t '/var/www(/.*)?'
+        restorecon -Fv /var/www {{ healthcheck_file }} {{ healthcheck_json_file }} 2>/dev/null \
+          || restorecon -Fv /var/www
+      register: selinux_relabel
+      changed_when: "'Relabeled' in selinux_relabel.stdout"
+      when:
+        - ansible_facts['os_family'] == 'RedHat'
+        - ansible_facts['selinux'] is defined
+        - ansible_facts['selinux'].status | default('disabled') == 'enabled'
+
+    - name: Generate initial /healthcheck so it is available before first sync completes
+      tags: healthcheck
+      ansible.builtin.command:
+        cmd: /usr/bin/python3 /opt/healthcheck/healthcheck_update.py --service sync --field repo --value {{ healthcheck_source_name }} --status PENDING
+      args:
+        creates: /var/www/healthcheck.html
+
     - name: Install Nginx
       package:
         name: nginx
         state: present
 
     - name: Create Nginx configuration for SWNG mirror
+      tags: healthcheck
       template:
         src: nginx.conf.j2
         dest: /etc/nginx/conf.d/swng-mirror.conf
@@ -170,6 +243,7 @@
       when: certbot_enabled | bool and certbot_authenticator == 'standalone'
 
     - name: Create Nginx HTTPS configuration for SWNG mirror
+      tags: healthcheck
       template:
         src: nginx-https.conf.j2
         dest: /etc/nginx/conf.d/swng-mirror-https.conf
@@ -178,6 +252,7 @@
       when: certbot_enabled | bool
 
     - name: Update HTTP Nginx configuration to redirect to HTTPS
+      tags: healthcheck
       template:
         src: nginx.conf.j2
         dest: /etc/nginx/conf.d/swng-mirror.conf

@@ -31,6 +31,18 @@ server {
         autoindex on;
     }
 
+    # Health-check for cl-mirrors
+    location = /healthcheck {
+        alias {{ healthcheck_file }};
+        default_type text/html;
+    }
+
+    location = /healthcheck.json {
+        alias {{ healthcheck_json_file }};
+        default_type application/json;
+        add_header Cache-Control "no-store";
+    }
+
     # SWNG repositories
     location /swng/ {
         alias {{ swng_mirror_path }}/;

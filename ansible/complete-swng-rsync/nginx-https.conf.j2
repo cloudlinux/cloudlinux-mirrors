@@ -25,6 +25,18 @@ server {
     access_log /var/log/nginx/swng-mirror-https-access.log;
     error_log /var/log/nginx/swng-mirror-https-error.log;
 
+    # Health-check for mirrorservice
+    location = /healthcheck {
+        alias {{ healthcheck_file }};
+        default_type text/html;
+    }
+
+    location = /healthcheck.json {
+        alias {{ healthcheck_json_file }};
+        default_type application/json;
+        add_header Cache-Control "no-store";
+    }
+
     # SWNG repositories
     location / {
         try_files $uri $uri/ =404;

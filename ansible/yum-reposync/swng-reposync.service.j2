@@ -14,5 +14,6 @@ ExecStart=/usr/bin/reposync -p {{ swng_mirror_path }}/ --repo {{ repo.name }}
 ExecStartPost=/usr/bin/createrepo {{ swng_mirror_path }}/{{ repo.name }}/
 {% endif %}
 {% endfor %}
+ExecStartPost=/usr/bin/python3 /opt/healthcheck/healthcheck_update.py --service sync --field repo --value {{ healthcheck_source_name }} --status OK
 StandardOutput=append:{{ sync_log_file }}
 StandardError=append:{{ sync_log_file }}
