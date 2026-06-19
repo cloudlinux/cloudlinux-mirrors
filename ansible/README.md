@@ -93,14 +93,14 @@ Most playbooks support these common variables:
 
 ## Playbook Comparison
 
-| Feature | Complete SWNG RSync | Specific Version RSync | yum-reposync | Combined Mirror |
-|---------|---------------------|------------------------|--------------|-----------------|
-| Repository Type | SWNG only | SWNG (version-specific) | SWNG (selective) | CloudLinux + SWNG |
-| Sync Method | RSync | RSync | reposync | RSync |
-| Disk Space | ~200-500 GB | ~100-200 GB | Varies | ~500 GB - 2+ TB |
-| Sync Speed | Fast | Fast | Moderate | Fast |
-| Selectivity | Complete | Version-based | Repository-based | Complete |
-| Best For | Complete SWNG | Specific versions | Selective repos | Complete setup |
+| Feature | Complete SWNG RSync | Specific Version RSync  | yum-reposync | Combined Mirror |
+|---------|---------------------|-------------------------|--------------|-------|
+| Repository Type | SWNG only           | SWNG (version-specific) | SWNG (selective) | CloudLinux + SWNG |
+| Sync Method | RSync               | RSync                   | reposync | RSync |
+| Disk Space | ~300-500 GB         | ~200-300 GB             | Varies | 2+ TB |
+| Sync Speed | Fast                | Fast                    | Moderate | Fast |
+| Selectivity | Complete            | Version-based           | Repository-based | Complete |
+| Best For | Complete SWNG       | Specific versions       | Selective repos | Complete setup |
 
 ## Customization
 
@@ -170,11 +170,10 @@ ansible-playbook -i inventory.ini playbook.yml --tags healthcheck \
 ### What `--tags healthcheck` deploys
 
 - `/opt/healthcheck/healthcheck_update.py` — status update tool (Python, Apache 2.0)
-- `/opt/healthcheck/.env` — paths config (idempotent: `force: false` preserves your edits)
+- `/opt/healthcheck/.env` — paths config 
 - `/var/www/healthcheck.html` + `/var/www/healthcheck.json` — initial PENDING files
-- Nginx `location = /healthcheck` (HTML, backward-compat) + `location = /healthcheck.json` (JSON, current contract)
+- Nginx `location = /healthcheck` (HTML, backward-compat) + `location = /healthcheck.json`
 - `ExecStartPost=` hook in your sync service — flips status from `PENDING` to `OK` after each sync
-- SELinux `public_content_rw_t` fcontext on `/var/www` (RedHat-family with enforcing SELinux only — fixes nginx `httpd_t` denial)
 
 ### After tags run
 
@@ -191,7 +190,6 @@ systemctl start swng-reposync.service             # yum-reposync
 ### Verification
 
 ```bash
-# JSON endpoint — used by the cl-mirrors mirrorservice checker
 curl -s https://<your-mirror>/healthcheck.json
 ```
 
@@ -204,13 +202,6 @@ Expected:
     {"repo": "swng.cloudlinux.com", "status": "OK", "time": "YYYY/MM/DD HH:MM:SS"}
   ]
 }
-```
-
-If `/healthcheck.json` returns `HTTP 404`, the nginx vhost did not pick up the new `location` block — check that the handler ran:
-
-```bash
-systemctl reload nginx
-nginx -T | grep -A2 "location = /healthcheck"
 ```
 
 ## Next Steps

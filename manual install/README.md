@@ -941,20 +941,7 @@ Then:
 systemctl daemon-reload
 ```
 
-### Step 6 — SELinux fcontext (RedHat-family with enforcing SELinux only)
-
-On enforcing-SELinux EL hosts (e.g. AlmaLinux 10) nginx (`httpd_t`) cannot read files in `/var/www` by default — they get `var_t`. Set the right context so the alias works:
-
-```bash
-# Skip this step if SELinux is disabled or permissive
-getenforce        # check first
-
-semanage fcontext -a -t public_content_rw_t '/var/www(/.*)?' 2>/dev/null \
-  || semanage fcontext -m -t public_content_rw_t '/var/www(/.*)?'
-restorecon -Fv /var/www
-```
-
-### Step 7 — Trigger sync to flip PENDING → OK
+### Step 6 — Trigger sync to flip PENDING → OK
 
 Run your sync service once so `ExecStartPost` fires and flips the status:
 
