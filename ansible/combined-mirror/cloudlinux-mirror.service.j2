@@ -5,6 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+SuccessExitStatus=24
 ExecStart=/usr/bin/rsync -av --delete {{ cloudlinux_rsync_source }} {{ cloudlinux_mirror_path }}/
 StandardOutput=append:{{ cloudlinux_sync_log }}
 StandardError=append:{{ cloudlinux_sync_log }}

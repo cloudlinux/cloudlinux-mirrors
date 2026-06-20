@@ -5,6 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+SuccessExitStatus=24
 {% for repo in swng_repos %}
 {% if repo.enabled %}
 {% if repo.module_platform_id is defined %}
