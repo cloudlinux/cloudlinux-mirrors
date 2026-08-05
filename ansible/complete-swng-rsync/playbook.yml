@@ -6,6 +6,14 @@
     - defaults/main.yml
 
   tasks:
+    - name: Create mirror directory
+      file:
+        path: "{{ swng_mirror_path }}"
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+
     - name: Check available disk space
       command: df -h {{ mirror_base_path }}
       register: disk_space
@@ -14,14 +22,6 @@
     - name: Display available disk space
       debug:
         msg: "{{ disk_space.stdout_lines }}"
-
-    - name: Create mirror directory
-      file:
-        path: "{{ swng_mirror_path }}"
-        state: directory
-        mode: '0755'
-        owner: root
-        group: root
 
     - name: Install rsync if not present
       package:
@@ -129,10 +129,17 @@
       ansible.builtin.shell: |
         semanage fcontext -a -t public_content_rw_t '/var/www(/.*)?' 2>/dev/null \
           || semanage fcontext -m -t public_content_rw_t '/var/www(/.*)?'
-        restorecon -Fv /var/www {{ healthcheck_file }} {{ healthcheck_json_file }} 2>/dev/null \
-          || restorecon -Fv /var/www
+        restorecon -RFv /var/www {{ healthcheck_file }} {{ healthcheck_json_file }} 2>/dev/null \
+          || restorecon -RFv /var/www
       register: selinux_relabel
       changed_when: "'Relabeled' in selinux_relabel.stdout"
+      when:
+        - ansible_facts['os_family'] == 'RedHat'
+        - ansible_facts['selinux'] is defined
+        - ansible_facts['selinux'].status | default('disabled') == 'enabled'
+
+    - name: Allow systemd-run rsync to act as a network client and write mirror data (SELinux enforcing)
+      ansible.builtin.command: setsebool -P rsync_client=1 rsync_anon_write=1
       when:
         - ansible_facts['os_family'] == 'RedHat'
         - ansible_facts['selinux'] is defined
@@ -242,6 +249,12 @@
         state: started
       when: certbot_enabled | bool and certbot_authenticator == 'standalone'
 
+    - name: Check whether the Let's Encrypt certificate exists
+      stat:
+        path: "/etc/letsencrypt/live/{{ mirror_domain }}/fullchain.pem"
+      register: letsencrypt_cert
+      when: certbot_enabled | bool
+
     - name: Create Nginx HTTPS configuration for SWNG mirror
       tags: healthcheck
       template:
@@ -249,7 +262,7 @@
         dest: /etc/nginx/conf.d/swng-mirror-https.conf
         mode: '0644'
       notify: restart nginx
-      when: certbot_enabled | bool
+      when: certbot_enabled | bool and letsencrypt_cert.stat.exists
 
     - name: Update HTTP Nginx configuration to redirect to HTTPS
       tags: healthcheck
@@ -258,7 +271,15 @@
         dest: /etc/nginx/conf.d/swng-mirror.conf
         mode: '0644'
       notify: restart nginx
-      when: certbot_enabled | bool
+      when: certbot_enabled | bool and letsencrypt_cert.stat.exists
+
+    - name: Warn when certificate could not be obtained (HTTPS config skipped)
+      debug:
+        msg: >-
+          Let's Encrypt certificate for {{ mirror_domain }} was not obtained.
+          The HTTPS vhost was NOT deployed so nginx keeps serving over HTTP.
+          Check /var/log/letsencrypt/letsencrypt.log and re-run the playbook.
+      when: certbot_enabled | bool and not letsencrypt_cert.stat.exists
 
     - name: Ensure certbot renew cron job exists
       cron:
