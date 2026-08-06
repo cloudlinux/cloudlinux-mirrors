@@ -36,9 +36,22 @@
         name: rsync
         state: present
 
+    - name: Detect mirror files not owned by root (from earlier owner-preserving syncs)
+      command: find {{ item }} -not -user root -print -quit
+      loop:
+        - "{{ cloudlinux_mirror_path }}"
+        - "{{ swng_mirror_path }}"
+      register: mirror_nonroot
+      changed_when: false
+
+    - name: Normalize mirror tree ownership to root (one-time migration)
+      command: chown -R root:root {{ item.item }}
+      loop: "{{ mirror_nonroot.results }}"
+      when: item.stdout | length > 0
+
     - name: Perform initial CloudLinux repository sync
       command: >
-        rsync -avH --delete
+        rsync -avH --no-owner --no-group --delete
         --progress
         --log-file={{ cloudlinux_sync_log }}
         {{ cloudlinux_rsync_source }}
@@ -50,7 +63,7 @@
 
     - name: Perform initial SWNG repository sync
       command: >
-        rsync -avH --delete
+        rsync -avH --no-owner --no-group --delete
         --progress
         --log-file={{ swng_sync_log }}
         {{ swng_rsync_source }}
