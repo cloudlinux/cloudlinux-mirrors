@@ -3,10 +3,8 @@
 
 # Mirror paths
 mirror_base_path: /var/www/mirrors
-# Minimum free space (GB) on the filesystem that holds mirror_base_path;
-# the playbook refuses to start the initial sync below it.
-# CloudLinux 10 channel: ~8 GB today (2026-10); CL9 grew to ~50 GB and CL8 to ~100 GB
-# over their lifetime, so plan 100-200 GB for the long run
+
+# Minimum free space (GB) on the filesystem that holds mirror_base_path
 mirror_min_free_gb: 20
 cloudlinux_version: 10  # Options: 10
 swng_mirror_path: "{{ mirror_base_path }}/swng/{{ cloudlinux_version }}"
