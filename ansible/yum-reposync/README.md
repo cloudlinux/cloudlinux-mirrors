@@ -36,7 +36,7 @@ Default variables are defined in `defaults/main.yml`. You can customize the play
 3. Creates mirror directory structure
 4. Creates YUM repository configuration file (`/etc/yum.repos.d/swng-upstream.repo`)
 5. Imports CloudLinux GPG key
-6. Performs initial repository sync using `reposync`
+6. Starts the initial `reposync` in the background through the systemd service (createrepo and `/healthcheck.json` follow when it finishes)
 7. Updates repository metadata using `createrepo`
 8. Creates systemd service for automated syncing
 9. Creates systemd timer for scheduled updates

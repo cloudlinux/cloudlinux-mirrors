@@ -45,7 +45,7 @@ Default variables are defined in `defaults/main.yml`. You can customize the play
 1. Checks available disk space
 2. Creates mirror directories for both CloudLinux and SWNG
 3. Installs rsync if needed
-4. Performs initial sync for both repositories (runs asynchronously)
+4. Starts the initial sync for both repositories in the background through the systemd unit(s) (so `/healthcheck.json` turns OK when it finishes)
 5. Creates systemd service(s) for automated syncing
 6. Creates systemd timer(s) for scheduled updates
 7. Enables and starts the timer(s)

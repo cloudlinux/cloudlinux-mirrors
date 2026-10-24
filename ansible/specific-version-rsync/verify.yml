@@ -13,7 +13,7 @@
       shell: |
         d="{{ mirror_base_path }}"
         while [ ! -d "$d" ]; do d=$(dirname "$d"); done
-        df -k --output=target,avail "$d" | tail -1
+        df -k --output=avail,target "$d" | tail -1
       register: mirror_fs
       changed_when: false
       check_mode: false
@@ -21,15 +21,15 @@
     - name: Report storage filesystem
       debug:
         msg: >-
-          INFO: {{ mirror_base_path }} is on the filesystem mounted at {{ mirror_fs.stdout.split()[0] }}
-          ({{ (mirror_fs.stdout.split()[1] | int) // 1048576 }} GB free)
+          INFO: {{ mirror_base_path }} is on the filesystem mounted at {{ mirror_fs.stdout.split(None, 1)[1] }}
+          ({{ (mirror_fs.stdout.split()[0] | int) // 1048576 }} GB free)
 
     - name: Warn if free space is below 10% of the minimum for this mirror type
       debug:
         msg: >-
-          WARNING: only {{ (mirror_fs.stdout.split()[1] | int) // 1048576 }} GB free on
-          {{ mirror_fs.stdout.split()[0] }}; the next sync may fail with ENOSPC
-      when: ((mirror_fs.stdout.split()[1] | int) // 1048576) < ((mirror_min_free_gb | int) // 10)
+          WARNING: only {{ (mirror_fs.stdout.split()[0] | int) // 1048576 }} GB free on
+          {{ mirror_fs.stdout.split(None, 1)[1] }}; the next sync may fail with ENOSPC
+      when: ((mirror_fs.stdout.split()[0] | int) // 1048576) < ((mirror_min_free_gb | int) // 10)
 
     - name: Check SWNG 10 directory exists
       stat:

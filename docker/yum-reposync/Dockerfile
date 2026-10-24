@@ -16,7 +16,7 @@ RUN chmod +x /usr/local/bin/sync-script.sh
 COPY swng-upstream.repo /etc/yum.repos.d/swng-upstream.repo
 
 # Import CloudLinux GPG key
-RUN rpm --import https://repo.cloudlinux.com/cloudlinux/RPM-GPG-KEY-cloudlinux || true
+RUN rpm --import https://repo.cloudlinux.com/cloudlinux/security/RPM-GPG-KEY-CloudLinux || true
 
 # Create log directory
 RUN mkdir -p /var/log && \

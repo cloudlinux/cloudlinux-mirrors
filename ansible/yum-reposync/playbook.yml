@@ -14,15 +14,15 @@
       shell: |
         d="{{ mirror_base_path }}"
         while [ ! -d "$d" ]; do d=$(dirname "$d"); done
-        df -k --output=target,avail "$d" | tail -1
+        df -k --output=avail,target "$d" | tail -1
       register: mirror_fs
       changed_when: false
       check_mode: false
 
     - name: Set mirror filesystem facts
       set_fact:
-        mirror_fs_mount: "{{ mirror_fs.stdout.split()[0] }}"
-        mirror_fs_free_gb: "{{ (mirror_fs.stdout.split()[1] | int) // 1048576 }}"
+        mirror_fs_mount: "{{ mirror_fs.stdout.split(None, 1)[1] }}"
+        mirror_fs_free_gb: "{{ (mirror_fs.stdout.split()[0] | int) // 1048576 }}"
 
     - name: Display where the mirror data will be stored
       debug:
@@ -64,22 +64,8 @@
     - name: Import CloudLinux GPG key if not present
       rpm_key:
         state: present
-        key: https://repo.cloudlinux.com/cloudlinux/RPM-GPG-KEY-cloudlinux
+        key: https://repo.cloudlinux.com/cloudlinux/security/RPM-GPG-KEY-CloudLinux
       ignore_errors: yes
-
-    - name: Perform initial repository sync
-      command: >
-        reposync -p {{ swng_mirror_path }}/
-        --repo {{ item.name }}
-        {% if item.module_platform_id is defined %}
-        --setopt=module_platform_id={{ item.module_platform_id }}
-        {% endif %}
-      async: 3600
-      poll: 0
-      register: initial_sync
-      ignore_errors: yes
-      loop: "{{ swng_repos }}"
-      when: item.enabled
 
     - name: Ensure repo directories exist before createrepo
       file:
@@ -118,6 +104,15 @@
         enabled: yes
         state: started
         daemon_reload: yes
+
+    # The initial sync runs through the same unit the timer uses, so its
+    # ExecStartPost steps (createrepo, /healthcheck.json = OK) run as soon as
+    # it finishes instead of waiting for the first timer run.
+    - name: Start the initial reposync in the background
+      systemd:
+        name: "{{ service_name }}.service"
+        state: started
+        no_block: yes
 
     - name: Check timer status
       command: systemctl status {{ service_name }}.timer

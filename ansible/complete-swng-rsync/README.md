@@ -32,7 +32,7 @@ Default variables are defined in `defaults/main.yml`. You can customize the play
 1. Checks available disk space
 2. Creates mirror directory structure
 3. Installs rsync if needed
-4. Performs initial repository sync (runs asynchronously)
+4. Starts the initial repository sync in the background through the systemd service (so `/healthcheck.json` turns OK when it finishes)
 5. Creates systemd service for automated syncing
 6. Creates systemd timer for scheduled updates
 7. Enables and starts the timer

@@ -14,15 +14,15 @@
       shell: |
         d="{{ mirror_base_path }}"
         while [ ! -d "$d" ]; do d=$(dirname "$d"); done
-        df -k --output=target,avail "$d" | tail -1
+        df -k --output=avail,target "$d" | tail -1
       register: mirror_fs
       changed_when: false
       check_mode: false
 
     - name: Set mirror filesystem facts
       set_fact:
-        mirror_fs_mount: "{{ mirror_fs.stdout.split()[0] }}"
-        mirror_fs_free_gb: "{{ (mirror_fs.stdout.split()[1] | int) // 1048576 }}"
+        mirror_fs_mount: "{{ mirror_fs.stdout.split(None, 1)[1] }}"
+        mirror_fs_free_gb: "{{ (mirror_fs.stdout.split()[0] | int) // 1048576 }}"
 
     - name: Display where the mirror data will be stored
       debug:
