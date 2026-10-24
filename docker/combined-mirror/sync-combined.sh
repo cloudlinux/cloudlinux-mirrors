@@ -11,7 +11,7 @@ echo "$(date): Starting combined CloudLinux and SWNG mirror sync" >> "$LOG_FILE"
 
 # Sync CloudLinux first
 echo "$(date): Syncing CloudLinux repository..." >> "$LOG_FILE"
-rsync -avH --delete \
+rsync -avH --delay-updates --delete-delay \
   --progress \
   "$CLOUDLINUX_RSYNC_SOURCE" \
   "$CLOUDLINUX_MIRROR_PATH/" >> "$LOG_FILE" 2>&1
@@ -26,7 +26,7 @@ fi
 
 # Sync SWNG
 echo "$(date): Syncing SWNG repository..." >> "$LOG_FILE"
-rsync -avH --delete \
+rsync -avH --delay-updates --delete-delay \
   --progress \
   "$SWNG_RSYNC_SOURCE" \
   "$SWNG_MIRROR_PATH/" >> "$LOG_FILE" 2>&1
