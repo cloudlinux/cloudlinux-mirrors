@@ -37,3 +37,7 @@ certbot_cron_schedule:
 healthcheck_file: /var/www/healthcheck.html
 healthcheck_json_file: /var/www/healthcheck.json
 healthcheck_source_name: swng.cloudlinux.com
+
+# nginx worker limits (stock nginx.conf: 1024 open files / connections per worker)
+nginx_worker_rlimit_nofile: 65535
+nginx_worker_connections: 8192
