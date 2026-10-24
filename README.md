@@ -222,15 +222,15 @@ curl https://upstream.cloudlinux.com/swng/10/
 
 ```bash
 # Mirror all SWNG
-rsync -avH --delete --numeric-ids --safe-links \
+rsync -avH --delay-updates --delete-delay --numeric-ids --safe-links \
   rsync://rsync.upstream.cloudlinux.com/SWNG/ /var/www/mirrors/swng/
 
 # Mirror only CloudLinux 10 SWNG (partial)
-rsync -avH --delete --numeric-ids --safe-links \
+rsync -avH --delay-updates --delete-delay --numeric-ids --safe-links \
   rsync://rsync.upstream.cloudlinux.com/SWNG/10/ /var/www/mirrors/swng/10/
 
 # Mirror CloudLinux repo (~3.4 TB — partial sync recommended)
-rsync -avH --delete --numeric-ids --safe-links \
+rsync -avH --delay-updates --delete-delay --numeric-ids --safe-links \
   rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ /var/www/mirrors/cloudlinux/
 ```
 

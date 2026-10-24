@@ -11,7 +11,7 @@ mkdir -p "$MIRROR_PATH"
 
 echo "$(date): Starting SWNG CloudLinux ${CLOUDLINUX_VERSION} mirror sync" >> "$LOG_FILE"
 
-rsync -avH --delete \
+rsync -avH --delay-updates --delete-delay \
   --progress \
   "$RSYNC_SOURCE" \
   "$MIRROR_PATH/" >> "$LOG_FILE" 2>&1

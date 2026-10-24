@@ -7,7 +7,7 @@ LOG_FILE="${CLOUDLINUX_LOG_FILE:-/var/log/cloudlinux-mirror.log}"
 
 echo "$(date): Starting CloudLinux mirror sync" >> "$LOG_FILE"
 
-rsync -avH --delete \
+rsync -avH --delay-updates --delete-delay \
   --progress \
   "$RSYNC_SOURCE" \
   "$MIRROR_PATH/" >> "$LOG_FILE" 2>&1

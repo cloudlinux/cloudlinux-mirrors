@@ -7,7 +7,7 @@ LOG_FILE="${SWNG_LOG_FILE:-/var/log/swng-mirror.log}"
 
 echo "$(date): Starting SWNG mirror sync" >> "$LOG_FILE"
 
-rsync -avH --delete \
+rsync -avH --delay-updates --delete-delay \
   --progress \
   "$RSYNC_SOURCE" \
   "$MIRROR_PATH/" >> "$LOG_FILE" 2>&1
