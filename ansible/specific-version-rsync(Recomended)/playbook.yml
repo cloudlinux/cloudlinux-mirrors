@@ -154,6 +154,45 @@
         name: nginx
         state: present
 
+    # Stock nginx.conf leaves each worker at 1024 open files / 1024
+    # connections. A busy mirror exhausts that during a metadata update and
+    # answers HTTP 500 ("open() failed (24: Too many open files)").
+    - name: Raise nginx worker open-file limit
+      tags: nginx-limits
+      ansible.builtin.lineinfile:
+        path: /etc/nginx/nginx.conf
+        regexp: '^\s*worker_rlimit_nofile\s'
+        line: "worker_rlimit_nofile {{ nginx_worker_rlimit_nofile }};"
+        insertafter: '^\s*worker_processes\s'
+      notify: restart nginx
+
+    - name: Raise nginx worker connection limit
+      tags: nginx-limits
+      ansible.builtin.lineinfile:
+        path: /etc/nginx/nginx.conf
+        regexp: '^(\s*)worker_connections\s'
+        line: '\1worker_connections {{ nginx_worker_connections }};'
+        backrefs: true
+      notify: restart nginx
+
+    # Without this boolean SELinux denies nginx's setrlimit() and
+    # worker_rlimit_nofile is silently ignored (only an [alert] in error.log).
+    - name: Allow nginx to raise its open-file limit (SELinux enforcing)
+      tags: nginx-limits
+      ansible.builtin.shell: |
+        if getsebool httpd_setrlimit | grep -q -- '--> on$'; then
+          echo unchanged
+        else
+          setsebool -P httpd_setrlimit on && echo changed
+        fi
+      register: nginx_setrlimit_bool
+      changed_when: "'changed' in nginx_setrlimit_bool.stdout"
+      notify: restart nginx
+      when:
+        - ansible_facts['os_family'] == 'RedHat'
+        - ansible_facts['selinux'] is defined
+        - ansible_facts['selinux'].status | default('disabled') == 'enabled'
+
     - name: Create Nginx configuration for SWNG mirror
       tags: healthcheck
       template:
