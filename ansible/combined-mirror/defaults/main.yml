@@ -3,9 +3,7 @@
 
 # Mirror paths
 mirror_base_path: /var/www/mirrors
-# Minimum free space (GB) on the filesystem that holds mirror_base_path;
-# the playbook refuses to start the initial sync below it.
-# SWNG ~560 GB + repo.cloudlinux.com ~3.2 TB with rsync -H, measured 2026-10
+# Minimum free space (GB) on the filesystem that holds mirror_base_path
 mirror_min_free_gb: 4000
 cloudlinux_mirror_path: "{{ mirror_base_path }}/cloudlinux"
 swng_mirror_path: "{{ mirror_base_path }}/swng"
