@@ -17,9 +17,9 @@
         msg: "OK: {{ mirror_base_path }} is mounted"
       when: mountpoint_check.rc == 0
 
-    - name: Fail if storage not mounted
-      fail:
-        msg: "ERROR: {{ mirror_base_path }} is not mounted"
+    - name: Warn if storage is not a dedicated mountpoint
+      debug:
+        msg: "WARNING: {{ mirror_base_path }} is not a dedicated mountpoint - the mirror lives on the root filesystem"
       when: mountpoint_check.rc != 0
 
     - name: Check CloudLinux mirror directory exists
