@@ -38,7 +38,7 @@
 
     - name: Perform initial CloudLinux repository sync
       command: >
-        rsync -avH --delete
+        rsync -avH --delay-updates --delete-delay
         --progress
         --log-file={{ cloudlinux_sync_log }}
         {{ cloudlinux_rsync_source }}
@@ -50,7 +50,7 @@
 
     - name: Perform initial SWNG repository sync
       command: >
-        rsync -avH --delete
+        rsync -avH --delay-updates --delete-delay
         --progress
         --log-file={{ swng_sync_log }}
         {{ swng_rsync_source }}

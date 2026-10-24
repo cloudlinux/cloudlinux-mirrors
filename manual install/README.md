@@ -59,14 +59,14 @@ Create mirror directories and run the initial sync (this may take hours).
 mkdir -p /var/www/mirrors/swng /var/www/mirrors/cloudlinux
 
 # Initial CloudLinux sync
-rsync -avH --delete \
+rsync -avH --delay-updates --delete-delay \
   --progress \
   --log-file=/var/log/cloudlinux-mirror.log \
   rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ \
   /var/www/mirrors/cloudlinux/
 
 # Initial SWNG sync
-rsync -avH --delete \
+rsync -avH --delay-updates --delete-delay \
   --progress \
   --log-file=/var/log/swng-mirror.log \
   rsync://rsync.upstream.cloudlinux.com/SWNG/ \
@@ -84,7 +84,7 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash -c '/usr/bin/rsync -avH --delete rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ /var/www/mirrors/cloudlinux/ && /usr/bin/rsync -avH --delete rsync://rsync.upstream.cloudlinux.com/SWNG/ /var/www/mirrors/swng/'
+ExecStart=/bin/bash -c '/usr/bin/rsync -avH --delay-updates --delete-delay rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ /var/www/mirrors/cloudlinux/ && /usr/bin/rsync -avH --delay-updates --delete-delay rsync://rsync.upstream.cloudlinux.com/SWNG/ /var/www/mirrors/swng/'
 StandardOutput=append:/var/log/cloudlinux-complete-mirror.log
 StandardError=append:/var/log/cloudlinux-complete-mirror.log
 ```
@@ -294,7 +294,7 @@ Create mirror directory and run the initial sync (this may take hours).
 ```bash
 mkdir -p /var/www/mirrors/swng
 
-rsync -avH --delete \
+rsync -avH --delay-updates --delete-delay \
   --progress \
   --log-file=/var/log/swng-mirror.log \
   rsync://rsync.upstream.cloudlinux.com/SWNG/ \
@@ -312,7 +312,7 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/rsync -avH --delete rsync://rsync.upstream.cloudlinux.com/SWNG/ /var/www/mirrors/swng/
+ExecStart=/usr/bin/rsync -avH --delay-updates --delete-delay rsync://rsync.upstream.cloudlinux.com/SWNG/ /var/www/mirrors/swng/
 StandardOutput=append:/var/log/swng-mirror.log
 StandardError=append:/var/log/swng-mirror.log
 ```
@@ -509,7 +509,7 @@ This manual example mirrors what `ansible/specific-version-rsync(Recomended)` do
 df -h
 mkdir -p /var/www/mirrors/swng/10
 
-rsync -avH --delete \
+rsync -avH --delay-updates --delete-delay \
   --progress \
   --log-file=/var/log/swng-10-mirror.log \
   rsync://rsync.upstream.cloudlinux.com/SWNG/10/ \
@@ -527,7 +527,7 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/rsync -avH --delete rsync://rsync.upstream.cloudlinux.com/SWNG/10/ /var/www/mirrors/swng/10/
+ExecStart=/usr/bin/rsync -avH --delay-updates --delete-delay rsync://rsync.upstream.cloudlinux.com/SWNG/10/ /var/www/mirrors/swng/10/
 StandardOutput=append:/var/log/swng-10-mirror.log
 StandardError=append:/var/log/swng-10-mirror.log
 ```
@@ -983,7 +983,7 @@ If a sync is interrupted, RSync will resume from where it left off on the next r
 The --partial option tells rsync to save partially downloaded files and download them later, which saves time and traffic when dealing with large ISOs/archives.
 
 ```bash
-rsync -avH --delete --partial rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ /var/www/mirrors/cloudlinux/
+rsync -avH --delay-updates --delete-delay --partial rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ /var/www/mirrors/cloudlinux/
 ```
 
 ### Selective Synchronization
@@ -992,14 +992,14 @@ Sync only specific versions or architectures:
 
 ```bash
 # Sync only CloudLinux 10
-rsync -avH --delete \
+rsync -avH --delay-updates --delete-delay \
   --include="10/**" \
   --exclude="*" \
   rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ \
   /var/www/mirrors/cloudlinux/
 
 # Sync only x86_64 architecture
-rsync -avH --delete \
+rsync -avH --delay-updates --delete-delay \
   --include="*/x86_64/**" \
   --exclude="*" \
   rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ \
@@ -1011,7 +1011,7 @@ rsync -avH --delete \
 Limit bandwidth usage during sync:
 
 ```bash
-rsync -avH --delete --bwlimit=10000 \
+rsync -avH --delay-updates --delete-delay --bwlimit=10000 \
   rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ \
   /var/www/mirrors/cloudlinux/
 ```
@@ -1021,7 +1021,7 @@ rsync -avH --delete --bwlimit=10000 \
 Enable compression (useful for slow connections):
 
 ```bash
-rsync -avzH --delete \
+rsync -avzH --delay-updates --delete-delay \
   rsync://rsync.upstream.cloudlinux.com/CLOUDLINUX/ \
   /var/www/mirrors/cloudlinux/
 ```

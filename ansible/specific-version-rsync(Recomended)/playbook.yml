@@ -37,7 +37,7 @@
 
     - name: Perform initial SWNG {{ cloudlinux_version }} repository sync
       command: >
-        rsync -avH --delete
+        rsync -avH --delay-updates --delete-delay
         --progress
         --log-file={{ sync_log_file }}
         {{ rsync_source }}
