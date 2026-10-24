@@ -3,10 +3,8 @@
 
 # Mirror paths
 mirror_base_path: /var/www/mirrors
-# Minimum free space (GB) on the filesystem that holds mirror_base_path;
-# the playbook refuses to start the initial sync below it.
-# default repo set (SWNG-10-x86_64) is ~8 GB (2026-10); add ~50 GB for SWNG-9 and
-# ~100 GB for SWNG-8 if you enable them
+
+# Minimum free space (GB) on the filesystem that holds mirror_base_path
 mirror_min_free_gb: 20
 swng_mirror_path: "{{ mirror_base_path }}/swng"
 
