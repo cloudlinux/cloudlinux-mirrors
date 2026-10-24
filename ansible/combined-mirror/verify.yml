@@ -6,21 +6,30 @@
     - defaults/main.yml
 
   tasks:
-    - name: Check storage mountpoint
-      command: mountpoint -q {{ mirror_base_path }}
-      register: mountpoint_check
+    # Where the mirror lives is the operator's choice (root filesystem or a
+    # dedicated disk), so this only reports the filesystem and warns when it
+    # is getting full. It does not require a separate mountpoint.
+    - name: Find the filesystem that holds {{ mirror_base_path }}
+      shell: |
+        d="{{ mirror_base_path }}"
+        while [ ! -d "$d" ]; do d=$(dirname "$d"); done
+        df -k --output=target,avail "$d" | tail -1
+      register: mirror_fs
       changed_when: false
-      failed_when: false
+      check_mode: false
 
-    - name: Report storage mount
+    - name: Report storage filesystem
       debug:
-        msg: "OK: {{ mirror_base_path }} is mounted"
-      when: mountpoint_check.rc == 0
+        msg: >-
+          INFO: {{ mirror_base_path }} is on the filesystem mounted at {{ mirror_fs.stdout.split()[0] }}
+          ({{ (mirror_fs.stdout.split()[1] | int) // 1048576 }} GB free)
 
-    - name: Fail if storage not mounted
-      fail:
-        msg: "ERROR: {{ mirror_base_path }} is not mounted"
-      when: mountpoint_check.rc != 0
+    - name: Warn if free space is below 10% of the minimum for this mirror type
+      debug:
+        msg: >-
+          WARNING: only {{ (mirror_fs.stdout.split()[1] | int) // 1048576 }} GB free on
+          {{ mirror_fs.stdout.split()[0] }}; the next sync may fail with ENOSPC
+      when: ((mirror_fs.stdout.split()[1] | int) // 1048576) < ((mirror_min_free_gb | int) // 10)
 
     - name: Check CloudLinux mirror directory exists
       stat:

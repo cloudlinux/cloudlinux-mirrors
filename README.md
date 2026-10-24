@@ -40,6 +40,12 @@ Your mirror must meet these requirements to be included in the CloudLinux mirror
 
 The Ansible playbooks include automatic SSL certificate setup using Certbot with Let's Encrypt.
 
+Where the mirror data lives is up to you: `mirror_base_path` (default `/var/www/mirrors`) can be a
+directory on the root filesystem or a dedicated disk mounted anywhere (CloudLinux's own mirrors use
+`/storage`). Mount the disk first if you want one, set `mirror_base_path` in `defaults/main.yml`, and
+the playbook checks that the filesystem holding it has at least `mirror_min_free_gb` free before it
+starts the initial sync (the default per mirror type is in the comparison table below).
+
 ## Recommended Setup: complete-swng-rsync
 
 Mirrors the **entire SWNG** repository (all supported versions).
@@ -85,11 +91,13 @@ If the recommended setup doesn't fit your needs, choose one of these alternative
 
 Mirrors **only SWNG for a specific CloudLinux version**: CloudLinux 10 only (enforced by the playbook/container); to serve CloudLinux OS 7-9 clients use complete SWNG rsync.
 
+> **Not eligible for the public mirror service.** The service checks the full channel set under `/swng/<channel-name>/`; this variant serves `/swng/<version>/` only. Use it for your own servers with a fixed `baseurl`, or deploy complete-swng-rsync to be listed.
+
 - Smallest storage footprint
 - Version-specific systemd services and timers
 - Best for: single-version environments
-- Storage: ~100-200 GB per version
-- Paths: `ansible/specific-version-rsync(Recomended)/` | `docker/specific-version-rsync/`
+- Storage: ~8 GB today (CloudLinux 10, 2026-10); plan 100-200 GB over the release lifetime
+- Paths: `ansible/specific-version-rsync/` | `docker/specific-version-rsync/`
 
 ### yum-reposync
 
@@ -118,7 +126,9 @@ Mirrors both **SWNG** and **repo.cloudlinux.com** (conversion/legacy content) in
 |---------|---------------------|------------------------|--------------|-----------------|
 | Scope | SWNG (all versions) | SWNG (one version) | SWNG (selected repos) | SWNG + CloudLinux |
 | Sync method | RSync | RSync | reposync | RSync |
-| Storage | ~600 GB | ~100-200 GB | Varies | ~4 TB |
+| Storage | ~600 GB (`rsync -H`) | ~8 GB today (CL10), plan 100-200 GB | ~8 GB (default repos) | ~4 TB |
+| `mirror_min_free_gb` default | 600 | 20 | 20 | 4000 |
+| Eligible for the public mirror service | **Yes** | No | No | Yes |
 | Selectivity | Complete | Version-based | Repository-based | Complete |
 | Best for | **Most environments** | Single-version | Fine-grained control | Full autonomous |
 

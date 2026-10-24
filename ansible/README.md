@@ -17,7 +17,7 @@ Sets up a complete local mirror of all SWNG repositories using RSync with automa
 - Systemd timer for automated updates
 - Configurable sync intervals
 
-### 2. Specific SWNG Version Mirror with RSync (Recomended)
+### 2. Specific SWNG Version Mirror with RSync
 **Directory:** `specific-version-rsync/`
 
 Sets up a local mirror of a specific CloudLinux version's SWNG repositories (e.g., only CloudLinux 8 or CloudLinux 9).

@@ -17,7 +17,7 @@ Complete local mirror of all SWNG repositories using RSync with automated update
 - Cron-based automated updates
 - Configurable sync intervals
 
-### 2. Specific SWNG Version Mirror with RSync (Recomended)
+### 2. Specific SWNG Version Mirror with RSync
 **Directory:** `specific-version-rsync/`
 
 Local mirror of a specific CloudLinux version SWNG repositories (10) using RSync.

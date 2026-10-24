@@ -6,14 +6,37 @@
     - defaults/main.yml
 
   tasks:
-    - name: Check available disk space
-      command: df -h {{ mirror_base_path }}
-      register: disk_space
+    # mirror_base_path is the operator's choice: a directory on the root
+    # filesystem or a dedicated disk mounted anywhere (e.g. /storage). The
+    # directory may not exist yet, so look at the closest existing parent and
+    # check free space on the filesystem that will actually hold the mirror.
+    - name: Find the filesystem that will hold {{ mirror_base_path }}
+      shell: |
+        d="{{ mirror_base_path }}"
+        while [ ! -d "$d" ]; do d=$(dirname "$d"); done
+        df -k --output=target,avail "$d" | tail -1
+      register: mirror_fs
       changed_when: false
+      check_mode: false
 
-    - name: Display available disk space
+    - name: Set mirror filesystem facts
+      set_fact:
+        mirror_fs_mount: "{{ mirror_fs.stdout.split()[0] }}"
+        mirror_fs_free_gb: "{{ (mirror_fs.stdout.split()[1] | int) // 1048576 }}"
+
+    - name: Display where the mirror data will be stored
       debug:
-        msg: "{{ disk_space.stdout_lines }}"
+        msg: >-
+          {{ mirror_base_path }} will live on the filesystem mounted at {{ mirror_fs_mount }}
+          ({{ mirror_fs_free_gb }} GB free, this mirror type needs at least {{ mirror_min_free_gb }} GB)
+
+    - name: Fail if there is not enough free space
+      assert:
+        that: (mirror_fs_free_gb | int) >= (mirror_min_free_gb | int)
+        fail_msg: >-
+          Only {{ mirror_fs_free_gb }} GB free on {{ mirror_fs_mount }}, this mirror type needs at least
+          {{ mirror_min_free_gb }} GB. Mount a larger disk at {{ mirror_base_path }} (or point
+          mirror_base_path at one) and re-run.
 
     - name: Create CloudLinux mirror directory
       file:

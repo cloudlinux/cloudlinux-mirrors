@@ -3,6 +3,10 @@
 
 # Mirror paths
 mirror_base_path: /var/www/mirrors
+# Minimum free space (GB) on the filesystem that holds mirror_base_path;
+# the playbook refuses to start the initial sync below it.
+# complete SWNG tree: ~560 GB with rsync -H (~710 GB without), measured 2026-10
+mirror_min_free_gb: 600
 swng_mirror_path: "{{ mirror_base_path }}/swng"
 
 # RSync configuration

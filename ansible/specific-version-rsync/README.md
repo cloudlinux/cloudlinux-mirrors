@@ -1,6 +1,12 @@
 # Specific SWNG Version Mirror with RSync - Ansible Playbook
 
-### This is the recommended type of installation
+> **Not eligible for the public CloudLinux mirror service.** This variant serves one
+> version under `/swng/<version>/` (for example `/swng/10/`), while the mirror service
+> checks every channel under `/swng/<channel-name>/` (`cloudlinux-x86_64-server-10`,
+> `cloudlinux-x86_64-server-9.8`, ...) and drops a mirror at the first missing one. Use
+> it for your own servers with a fixed `baseurl`; to be listed in the mirror service,
+> deploy [complete-swng-rsync](../complete-swng-rsync/) instead.
+
 This Ansible playbook sets up a local mirror of a specific CloudLinux version's SWNG repositories using RSync with automated updates via systemd timers.
 
 ## Prerequisites
@@ -8,7 +14,7 @@ This Ansible playbook sets up a local mirror of a specific CloudLinux version's 
 - Ansible 2.9 or later
 - Target server(s) with:
   - OS almalinux 9 or 10
-  - Sufficient disk space (varies by version, typically 100-200 GB)
+  - Sufficient disk space: the CloudLinux 10 channel is ~8 GB today (2026-10) and grows over the release lifetime (CL9 reached ~50 GB, CL8 ~100 GB); plan 100-200 GB
   - Root or sudo access
   - Network access to `rsync.upstream.cloudlinux.com`
   - Systemd support
@@ -18,7 +24,8 @@ This Ansible playbook sets up a local mirror of a specific CloudLinux version's 
 Default variables are defined in `defaults/main.yml`. You can customize the playbook by overriding variables:
 
 - `cloudlinux_version`: CloudLinux version to mirror (default: `10`)
-- `mirror_base_path`: Base path for mirrors (default: `/var/www/mirrors`)
+- `mirror_base_path`: Base path for mirrors (default: `/var/www/mirrors`); a directory on the root filesystem or a dedicated disk mounted anywhere, your choice
+- `mirror_min_free_gb`: minimum free space on the filesystem holding `mirror_base_path` (default: `20`; the CL10 channel is ~8 GB today, plan 100-200 GB long term)
 - `swng_mirror_path`: SWNG mirror directory (auto-generated based on version)
 - `rsync_source`: RSync source URL (auto-generated based on version)
 - `sync_log_file`: Log file path (auto-generated based on version)
@@ -31,7 +38,7 @@ Default variables are defined in `defaults/main.yml`. You can customize the play
 2. Checks available disk space
 3. Creates mirror directory structure for the specific version
 4. Installs rsync if needed
-5. Performs initial repository sync (runs asynchronously)
+5. Starts the initial repository sync in the background through the systemd service (so `/healthcheck.json` turns OK when it finishes)
 6. Creates systemd service for automated syncing
 7. Creates systemd timer for scheduled updates
 8. Enables and starts the timer
