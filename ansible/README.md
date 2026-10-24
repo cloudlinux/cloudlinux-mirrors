@@ -4,7 +4,9 @@ This directory contains Ansible playbooks for automating the setup of CloudLinux
 
 ## Available Playbooks
 
-### 1. Complete SWNG Mirror with RSync
+**Recommended: `complete-swng-rsync`.** It mirrors the full SWNG tree, serves CloudLinux OS 7-10 clients and is the only playbook here (besides `combined-mirror`) whose layout is accepted by the public CloudLinux mirror service. Pick one of the others only when you need a smaller, fixed-`baseurl` mirror for your own servers.
+
+### 1. Complete SWNG Mirror with RSync (Recommended)
 **Directory:** `complete-swng-rsync/`
 
 Sets up a complete local mirror of all SWNG repositories using RSync with automated updates via systemd timers.
@@ -19,6 +21,8 @@ Sets up a complete local mirror of all SWNG repositories using RSync with automa
 
 ### 2. Specific SWNG Version Mirror with RSync
 **Directory:** `specific-version-rsync/`
+
+> Serves one version under `/swng/<version>/`; for your own servers with a fixed `baseurl`. Not eligible for the public mirror service, use `complete-swng-rsync` for that.
 
 Sets up a local mirror of a specific CloudLinux version's SWNG repositories (e.g., only CloudLinux 8 or CloudLinux 9).
 
@@ -97,7 +101,9 @@ Most playbooks support these common variables:
 |---------|---------------------|-------------------------|--------------|-------|
 | Repository Type | SWNG only           | SWNG (version-specific) | SWNG (selective) | CloudLinux + SWNG |
 | Sync Method | RSync               | RSync                   | reposync | RSync |
-| Disk Space | ~600 GB             | ~200-300 GB             | Varies | ~4 TB |
+| Disk Space | ~600 GB             | ~8 GB today (CL10), plan 100-200 GB | ~8 GB (default repos) | ~4 TB |
+| `mirror_min_free_gb` default | 600 | 20 | 20 | 4000 |
+| Eligible for the public mirror service | **Yes** | No | No | Yes |
 | Sync Speed | Fast                | Fast                    | Moderate | Fast |
 | Selectivity | Complete            | Version-based           | Repository-based | Complete |
 | Best For | Complete SWNG       | Specific versions       | Selective repos | Complete setup |

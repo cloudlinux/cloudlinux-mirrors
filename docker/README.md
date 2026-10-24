@@ -4,7 +4,9 @@ This directory contains Docker and Docker Compose configurations for automating 
 
 ## Available Docker Setups
 
-### 1. Complete SWNG Mirror with RSync
+**Recommended: `complete-swng-rsync`.** It mirrors the full SWNG tree, serves CloudLinux OS 7-10 clients and is the only setup here (besides `combined-mirror`) whose layout is accepted by the public CloudLinux mirror service. Pick one of the others only when you need a smaller, fixed-`baseurl` mirror for your own servers.
+
+### 1. Complete SWNG Mirror with RSync (Recommended)
 **Directory:** `complete-swng-rsync/`
 
 Complete local mirror of all SWNG repositories using RSync with automated updates via cron.
@@ -98,7 +100,8 @@ docker compose logs -f
 |---------|---------------------|------------------------|--------------|-----------------|
 | Repository Type | SWNG only | SWNG (version-specific) | SWNG (selective) | CloudLinux + SWNG |
 | Sync Method | RSync | RSync | reposync | RSync |
-| Disk Space | ~600 GB | ~100-200 GB | Varies | ~4 TB |
+| Disk Space | ~600 GB | ~8 GB today (CL10), plan 100-200 GB | ~8 GB (default repos) | ~4 TB |
+| Eligible for the public mirror service | **Yes** | No | No | Yes |
 | Sync Speed | Fast | Fast | Moderate | Fast |
 | Selectivity | Complete | Version-based | Repository-based | Complete |
 | Web Server | No | No | No | Yes (optional) |
