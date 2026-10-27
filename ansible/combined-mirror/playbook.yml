@@ -38,6 +38,62 @@
           {{ mirror_min_free_gb }} GB. Mount a larger disk at {{ mirror_base_path }} (or point
           mirror_base_path at one) and re-run.
 
+    # Label the mirror tree before anything is created in it: nginx reads and
+    # confined rsync_t writes public_content_rw_t only. mirror_base_path may be
+    # a dedicated disk outside /var/www (default_t / unlabeled_t there).
+    # Always recursive: files moved in keep their old label, and a no-op pass
+    # over a full SWNG tree takes seconds.
+    - name: Ensure SELinux management tooling (semanage) is present
+      ansible.builtin.package:
+        name: policycoreutils-python-utils
+        state: present
+      when: ansible_facts['os_family'] == 'RedHat'
+
+    - name: Ensure /var/www and {{ mirror_base_path }} exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - /var/www
+        - "{{ mirror_base_path }}"
+
+    - name: Label /var/www and the mirror tree for nginx and confined rsync (SELinux enforcing)
+      ansible.builtin.shell: |
+        set -e
+        total=0
+        for p in /var/www '{{ mirror_base_path | regex_replace('/+$', '') }}'; do
+          semanage fcontext -a -t public_content_rw_t "${p}(/.*)?" 2>/dev/null \
+            || semanage fcontext -m -t public_content_rw_t "${p}(/.*)?"
+          n=$(restorecon -RFv "$p" | grep -c Relabeled || true)
+          total=$((total + n))
+        done
+        echo "relabeled=$total"
+      register: selinux_tree_relabel
+      changed_when: "'relabeled=0' not in selinux_tree_relabel.stdout"
+      when:
+        - ansible_facts['os_family'] == 'RedHat'
+        - ansible_facts['selinux'] is defined
+        - ansible_facts['selinux'].status | default('disabled') == 'enabled'
+
+    # Under systemd rsync runs in the confined rsync_t domain, which by default
+    # may neither connect to port 873 nor write public_content_rw_t files.
+    - name: Allow systemd-run rsync to act as a network client and write mirror data (SELinux enforcing)
+      ansible.builtin.shell: |
+        changed=0
+        for b in rsync_client rsync_anon_write; do
+          if ! getsebool "$b" | grep -q -- '--> on$'; then
+            setsebool -P "$b" on && changed=1
+          fi
+        done
+        echo "changed=$changed"
+      register: rsync_sebools
+      changed_when: "'changed=1' in rsync_sebools.stdout"
+      when:
+        - ansible_facts['os_family'] == 'RedHat'
+        - ansible_facts['selinux'] is defined
+        - ansible_facts['selinux'].status | default('disabled') == 'enabled'
+
     - name: Create CloudLinux mirror directory
       file:
         path: "{{ cloudlinux_mirror_path }}"
@@ -230,17 +286,10 @@
       ansible.builtin.shell: |
         semanage fcontext -a -t public_content_rw_t '/var/www(/.*)?' 2>/dev/null \
           || semanage fcontext -m -t public_content_rw_t '/var/www(/.*)?'
-        restorecon -RFv /var/www {{ healthcheck_file }} {{ healthcheck_json_file }} 2>/dev/null \
-          || restorecon -RFv /var/www
+        restorecon -Fv /var/www {{ healthcheck_file }} {{ healthcheck_json_file }} 2>/dev/null \
+          || restorecon -Fv /var/www
       register: selinux_relabel
       changed_when: "'Relabeled' in selinux_relabel.stdout"
-      when:
-        - ansible_facts['os_family'] == 'RedHat'
-        - ansible_facts['selinux'] is defined
-        - ansible_facts['selinux'].status | default('disabled') == 'enabled'
-
-    - name: Allow systemd-run rsync to act as a network client and write mirror data (SELinux enforcing)
-      ansible.builtin.command: setsebool -P rsync_client=1 rsync_anon_write=1
       when:
         - ansible_facts['os_family'] == 'RedHat'
         - ansible_facts['selinux'] is defined
@@ -378,7 +427,8 @@
       debug:
         msg: >-
           Let's Encrypt certificate for {{ mirror_domain }} was not obtained.
-          The HTTPS vhost was NOT deployed so nginx keeps serving over HTTP.
+          The HTTPS vhost was NOT deployed; over HTTP nginx serves only the ACME
+          challenge and /healthcheck and redirects the rest to HTTPS.
           Check /var/log/letsencrypt/letsencrypt.log and re-run the playbook.
       when: certbot_enabled | bool and not letsencrypt_cert.stat.exists
 
