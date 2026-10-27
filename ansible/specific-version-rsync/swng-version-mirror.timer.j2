@@ -1,6 +1,5 @@
 [Unit]
 Description=Run CloudLinux {{ cloudlinux_version }} SWNG Mirror Sync Every {{ sync_interval_hours }} Hours
-Requires={{ service_name }}.service
 
 [Timer]
 OnCalendar={{ timer_schedule }}
