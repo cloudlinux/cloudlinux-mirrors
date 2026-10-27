@@ -58,6 +58,15 @@
         name: rsync
         state: present
 
+    - name: Detect mirror files not owned by root (from earlier owner-preserving syncs)
+      command: find {{ swng_mirror_path }} -not -user root -print -quit
+      register: swng_nonroot
+      changed_when: false
+
+    - name: Normalize mirror tree ownership to root (one-time migration)
+      command: chown -R root:root {{ swng_mirror_path }}
+      when: swng_nonroot.stdout | length > 0
+
     - name: Create systemd service for SWNG {{ cloudlinux_version }} mirror sync
       tags: healthcheck
       template:

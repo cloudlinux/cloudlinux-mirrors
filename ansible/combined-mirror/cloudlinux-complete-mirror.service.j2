@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 SuccessExitStatus=24
-ExecStart=/bin/bash -c '/usr/bin/rsync -avH --delete {{ cloudlinux_rsync_source }} {{ cloudlinux_mirror_path }}/; /usr/bin/rsync -avH --delete {{ swng_rsync_source }} {{ swng_mirror_path }}/'
+ExecStart=/bin/bash -c '/usr/bin/rsync -avH --no-owner --no-group --delete {{ cloudlinux_rsync_source }} {{ cloudlinux_mirror_path }}/; /usr/bin/rsync -avH --no-owner --no-group --delete {{ swng_rsync_source }} {{ swng_mirror_path }}/'
 ExecStartPost=/usr/bin/python3 /opt/healthcheck/healthcheck_update.py --service sync --field repo --value {{ healthcheck_source_name }} --status OK
 StandardOutput=append:{{ combined_sync_log }}
 StandardError=append:{{ combined_sync_log }}
