@@ -339,7 +339,7 @@
           setsebool -P httpd_setrlimit on && echo changed
         fi
       register: nginx_setrlimit_bool
-      changed_when: "'changed' in nginx_setrlimit_bool.stdout"
+      changed_when: nginx_setrlimit_bool.stdout == 'changed'
       notify: restart nginx
       when:
         - ansible_facts['os_family'] == 'RedHat'
